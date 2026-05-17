@@ -1,0 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Genos');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono');
+@import url('https://fonts.googleapis.com/css2?family=Rubik+Mono+One');
+
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Genos', sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+  --font-digits: 'Rubik Mono One', monospace;
+}
