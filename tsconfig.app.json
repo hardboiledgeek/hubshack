@@ -16,6 +16,11 @@
 
     "paths": {
       "@src/*": ["./src/*"],
+      "@app/*": ["./src/app/*"],
+      "@components/*": ["./src/components/*"],
+      "@domain/*": ["./src/domain/*"],
+      "@views/*": ["./src/views/*"],
+      "@panels/*": ["./src/panels/*"],
       "@spec/*": ["./spec/*"]
     }
   },

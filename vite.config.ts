@@ -18,6 +18,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@src': path.resolve('./src'),
+      '@app': path.resolve('./src/app'),
+      '@components': path.resolve('./src/components'),
+      '@domain': path.resolve('./src/domain'),
+      '@views': path.resolve('./src/views'),
+      '@panels': path.resolve('./src/panels'),
       '@spec': path.resolve('./spec')
     }
   }
