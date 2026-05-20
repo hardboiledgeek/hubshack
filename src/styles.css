@@ -1,11 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Genos');
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@100..700');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100..700');
 @import url('https://fonts.googleapis.com/css2?family=Rubik+Mono+One');
 
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Genos', sans-serif;
+  --font-sans: 'IBM Plex Sans', sans-serif;
   --font-mono: 'Roboto Mono', monospace;
+  --font-brand: 'Rubik Mono One', monospace;
   --font-digits: 'Rubik Mono One', monospace;
+}
+
+.panel {
+  @apply rounded-xs ring-1 ring-white/10 shadow-md shadow-white/20
+    bg-gradient-to-br from-gray-900 from-30% to-gray-950 to-80%
+    border-3 border-double border-t-gray-700 border-l-gray-700 border-b-gray-500 border-r-gray-500;
+}
+
+.button {
+  @apply rounded-md
+    p-2 m-1
+    hover:cursor-pointer
+    bg-gradient-to-br from-gray-900 to-gray-950
+    border-2 border-t-gray-500 border-l-gray-500 border-b-gray-700 border-r-gray-700;
+}
+
+.select {
+  @apply rounded-md
+    p-2 m-1
+    bg-gradient-to-br from-gray-900 to-gray-950
+    border-1 border-t-gray-500 border-l-gray-500 border-b-gray-700 border-r-gray-700;
 }

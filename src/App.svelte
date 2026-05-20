@@ -1,8 +1,8 @@
 <script lang="ts">
   import { appRouter, Route } from '@app/app-router.svelte'
-  import Splash from '@views/Splash.svelte'
-  import Setup from '@views/Setup.svelte'
-  import Station from '@views/Station.svelte'
+  import Splash from '@views/splash/Splash.svelte'
+  import Setup from '@views/setup/Setup.svelte'
+  import Station from '@views/station/Station.svelte'
 </script>
 
 {#if appRouter.currentRoute === Route.Splash}
