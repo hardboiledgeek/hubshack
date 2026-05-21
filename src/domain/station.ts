@@ -7,11 +7,13 @@ import type { Unsubscribe } from '@domain/types'
 export default class Station extends Entity {
   #userId: string
   #stationName: string
+  #activeBenchId: string | null
 
-  private constructor(id: string, userId: string, stationName: string) {
+  private constructor(id: string, userId: string, stationName: string, activeBenchId: string | null) {
     super(id)
     this.#userId = userId
     this.#stationName = stationName
+    this.#activeBenchId = activeBenchId
   }
 
   get stationName(): string {
@@ -22,6 +24,14 @@ export default class Station extends Entity {
     this.#stationName = value
   }
 
+  get activeBenchId(): string | null {
+    return this.#activeBenchId
+  }
+
+  set activeBenchId(value: string | null) {
+    this.#activeBenchId = value
+  }
+
   async user(): Promise<User> {
     const user = await User.fetch(this.#userId)
     if (!user) throw new Error(`Station ${this.id} references missing user ${this.#userId}`)
@@ -29,19 +39,19 @@ export default class Station extends Entity {
   }
 
   static async create(user: User, stationName: string): Promise<Station> {
-    const station = new Station(Entity.generateId(), user.id, stationName)
+    const station = new Station(Entity.generateId(), user.id, stationName, null)
     await station.save()
     return station
   }
 
   static async fetch(id: string): Promise<Station | null> {
     const row = await hubshackDB.stations.get(id)
-    return row ? new Station(row.id, row.userId, row.stationName) : null
+    return row ? new Station(row.id, row.userId, row.stationName, row.activeBenchId) : null
   }
 
   static async fetchForUser(user: User): Promise<Station[]> {
     const rows = await hubshackDB.stations.where('userId').equals(user.id).toArray()
-    return rows.map(row => new Station(row.id, row.userId, row.stationName))
+    return rows.map(row => new Station(row.id, row.userId, row.stationName, row.activeBenchId))
   }
 
   static observe(id: string, callback: (station: Station | null) => void): Unsubscribe {
@@ -58,7 +68,8 @@ export default class Station extends Entity {
     await hubshackDB.stations.put({
       id: this.id,
       userId: this.#userId,
-      stationName: this.stationName
+      stationName: this.stationName,
+      activeBenchId: this.#activeBenchId
     })
   }
 }

@@ -2,6 +2,7 @@ import { appRouter } from '@app/app-router.svelte'
 import { appState } from '@app/app-state.svelte'
 import User from '@domain/user'
 import Station from '@domain/station'
+import Bench from '@domain/bench'
 
 export default class SetupViewModel {
   callsign = $state('')
@@ -25,6 +26,9 @@ export default class SetupViewModel {
       appState.currentUser = user
 
       const station = await Station.create(user, this.station.trim())
+      const bench = await Bench.create(station, 'Main')
+      station.activeBenchId = bench.id
+      await station.save()
       appState.currentStation = station
 
       appRouter.routeToStation()

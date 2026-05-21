@@ -84,7 +84,7 @@ Device → Panel flow will go through a topic bus (`vfoA.frequency`, etc.). Pers
 Enum-based router singleton. Routes: `Splash`, `Setup`, `Station`.
 
 - **`Splash` is the entry point** and owns the `loading` / `isSetup` routing decision. `App.svelte` is just a switch — no checks there.
-- Setup writes `appState.currentUser` / `appState.currentStation` after creating the entities, then calls `appRouter.routeToStation()`.
+- Setup writes `appState.currentUser` / `appState.currentStation` after creating the entities, then calls `appRouter.routeToStation()`. It also creates a default "Main" Bench and sets it as the Station's `activeBenchId` before the route — a Station is never persisted without at least one Bench.
 
 ## Station View Layout
 
