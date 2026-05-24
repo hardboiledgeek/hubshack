@@ -1,27 +1,19 @@
 import { appState } from '@app/app-state.svelte'
 import Bench from '@domain/bench'
-import type { Unsubscribe } from '@domain/types'
 
 export default class TabsPaneViewModel {
   #benches = $state<Bench[]>([])
   #editingBenchId = $state<string | null>(null)
   #menuOpenBenchId = $state<string | null>(null)
-  #unsubscribe: Unsubscribe | null = null
 
-  start(): void {
-    const station = appState.currentStation
-    if (!station) return
-    this.#unsubscribe = Bench.observeForStation(station, benches => {
-      this.#benches = benches
+  constructor() {
+    $effect(() => {
+      const station = appState.currentStation
+      if (!station) return
+      return Bench.watchForStation(station, benches => {
+        this.#benches = benches
+      })
     })
-  }
-
-  stop(): void {
-    this.#unsubscribe?.()
-    this.#unsubscribe = null
-    this.#benches = []
-    this.#editingBenchId = null
-    this.#menuOpenBenchId = null
   }
 
   get benches(): Bench[] {

@@ -11,15 +11,7 @@ const MOCK_DEVICES: MockDevice[] = [
 ]
 
 export default class DevicesPaneViewModel {
-  #devices = $state<MockDevice[]>([])
-
-  start(): void {
-    this.#devices = MOCK_DEVICES
-  }
-
-  stop(): void {
-    this.#devices = []
-  }
+  #devices = $state<MockDevice[]>(MOCK_DEVICES)
 
   get devices(): MockDevice[] {
     return this.#devices

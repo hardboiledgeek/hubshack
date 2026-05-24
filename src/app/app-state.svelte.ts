@@ -55,7 +55,7 @@ class AppState {
 
     if (id) {
       this.#userLoaded = false
-      this.#stopWatchingUser = User.observe(id, user => {
+      this.#stopWatchingUser = User.watch(id, user => {
         this.#currentUser = user
         this.#userLoaded = true
       })
@@ -70,7 +70,7 @@ class AppState {
 
     if (id) {
       this.#stationLoaded = false
-      this.#stopWatchingStation = Station.observe(id, station => {
+      this.#stopWatchingStation = Station.watch(id, station => {
         this.#currentStation = station
         this.#stationLoaded = true
       })

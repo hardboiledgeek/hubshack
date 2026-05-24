@@ -3,11 +3,6 @@
   import PlusIcon from '@components/PlusIcon.svelte'
 
   const viewModel = new DevicesPaneViewModel()
-
-  $effect(() => {
-    viewModel.start()
-    return () => viewModel.stop()
-  })
 </script>
 
 <section class="flex flex-col gap-2 border border-white/10 p-4">

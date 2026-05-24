@@ -8,11 +8,6 @@
   let { class: className = '' }: { class?: string } = $props()
 
   const viewModel = new TabsPaneViewModel()
-
-  $effect(() => {
-    viewModel.start()
-    return () => viewModel.stop()
-  })
 </script>
 
 <nav class="flex items-center gap-1 border border-white/10 px-4 {className}">

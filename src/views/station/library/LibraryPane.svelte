@@ -5,11 +5,6 @@
   let { class: className = '' }: { class?: string } = $props()
 
   const viewModel = new LibraryPaneViewModel()
-
-  $effect(() => {
-    viewModel.start()
-    return () => viewModel.stop()
-  })
 </script>
 
 <section class="flex flex-col overflow-hidden border border-white/10 {className}">

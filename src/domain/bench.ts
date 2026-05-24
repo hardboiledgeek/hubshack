@@ -1,8 +1,11 @@
-import { liveQuery } from 'dexie'
 import { hubshackDB } from '@domain/database'
 import Entity from '@domain/entity'
 import Station from '@domain/station'
 import type { Unsubscribe } from '@domain/types'
+import type { SubscriptionCallback } from '@domain/entity-observer'
+
+export type BenchCallback = SubscriptionCallback<Bench | null>
+export type BenchesCallback = SubscriptionCallback<Bench[]>
 
 export default class Bench extends Entity {
   #stationId: string
@@ -44,14 +47,12 @@ export default class Bench extends Entity {
     return rows.map(row => new Bench(row.id, row.stationId, row.name))
   }
 
-  static observe(id: string, callback: (bench: Bench | null) => void): Unsubscribe {
-    const subscription = liveQuery(() => Bench.fetch(id)).subscribe(callback)
-    return () => subscription.unsubscribe()
+  static watch(id: string, callback: BenchCallback): Unsubscribe {
+    return this.observe<Bench | null>(`single:${id}`, () => Bench.fetch(id)).subscribe(callback)
   }
 
-  static observeForStation(station: Station, callback: (benches: Bench[]) => void): Unsubscribe {
-    const subscription = liveQuery(() => Bench.fetchForStation(station)).subscribe(callback)
-    return () => subscription.unsubscribe()
+  static watchForStation(station: Station, callback: BenchesCallback): Unsubscribe {
+    return this.observe<Bench[]>(`by-station:${station.id}`, () => Bench.fetchForStation(station)).subscribe(callback)
   }
 
   async save(): Promise<void> {

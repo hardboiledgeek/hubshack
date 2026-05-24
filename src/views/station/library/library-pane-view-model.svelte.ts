@@ -23,15 +23,7 @@ const MOCK_PANEL_TYPES: MockPanelType[] = [
 
 export default class LibraryPaneViewModel {
   #collapsed = $state(false)
-  #types = $state<MockPanelType[]>([])
-
-  start(): void {
-    this.#types = MOCK_PANEL_TYPES
-  }
-
-  stop(): void {
-    this.#types = []
-  }
+  #types = $state<MockPanelType[]>(MOCK_PANEL_TYPES)
 
   get collapsed(): boolean {
     return this.#collapsed

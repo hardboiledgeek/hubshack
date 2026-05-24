@@ -14,15 +14,7 @@ const MOCK_PANELS: MockPanel[] = [
 ]
 
 export default class BenchPaneViewModel {
-  #panels = $state<MockPanel[]>([])
-
-  start(): void {
-    this.#panels = MOCK_PANELS
-  }
-
-  stop(): void {
-    this.#panels = []
-  }
+  #panels = $state<MockPanel[]>(MOCK_PANELS)
 
   get panels(): MockPanel[] {
     return this.#panels

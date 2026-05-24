@@ -4,11 +4,6 @@
   let { class: className = '' }: { class?: string } = $props()
 
   const viewModel = new BenchPaneViewModel()
-
-  $effect(() => {
-    viewModel.start()
-    return () => viewModel.stop()
-  })
 </script>
 
 <section class="flex flex-wrap content-start gap-4 overflow-auto border border-white/10 p-6 {className}">

@@ -46,12 +46,21 @@ Follow the shape of `User` and `Station`. The non-obvious rules:
 - **Relationship accessors return domain objects, not IDs**: `user.stations()` returns `Promise<Station[]>`. `station.user()` throws on dangling references — that's a data-integrity bug, not a null case.
 - **Methods take the related entity, not its id**: `Station.fetchForUser(user: User)`, not `fetchForUser(userId: string)`.
 - **Use `#`-private fields for runtime privacy** (e.g. entity id). TypeScript `private` is compile-time only and doesn't survive `$state` proxies.
+- **`null` and `undefined` are not interchangeable.** `null` is intentional, set by code, expected — the right value for "entity missing/deleted" or any deliberately-empty slot. `undefined` is "JavaScript did that" or "not yet set" — uninitialized fields, missing object properties, unsignaled state. Type signatures should say `T | null` when absence is part of the contract; reserve `T | undefined` for transient internal state (e.g. `EntityObserver`'s `#lastValue` sentinel for "no emission yet"). Never use `??` to paper over the distinction.
 
-#### The observe API
+#### The watch API
 
-Each entity exposes `observe*` methods parallel to its `fetch*` methods, returning an `Unsubscribe`. Implementation wraps Dexie's `liveQuery`; consumers don't see Dexie.
+Each entity exposes `watch*` methods parallel to its `fetch*` methods, returning an `Unsubscribe`. Implementation goes through `EntityObserver` (`src/domain/entity-observer.ts`), which wraps Dexie's `liveQuery`; consumers don't see Dexie.
 
-**Contract:** callbacks fire immediately with the current value, then again on every change — *including changes from other tabs*. `observe(id, cb)` passes `null` when the entity is deleted or missing.
+**Contract:** callbacks fire immediately with the current value, then again on every change — *including changes from other tabs*. `watch(id, cb)` passes `null` when the entity is deleted or missing.
+
+**Queries must never resolve to `undefined`.** `EntityObserver` uses `undefined` as the "no value emitted yet" sentinel for replay-on-subscribe. Singleton fetches normalize `undefined` (Dexie's "row not found") to `null` before returning — e.g. `row ? new Bench(...) : null`. Don't write a `watch*` whose query can pass `undefined` through to `liveQuery`; replay will silently break.
+
+**Sharing:** subscriptions are deduplicated per (subclass, key). Ten VMs calling `Bench.watch(sameId, ...)` share one underlying `liveQuery`; new subscribers get the cached last value immediately. When the last subscriber unsubscribes, the underlying query is torn down.
+
+Implemented via `Entity.observe<T>(key, query)` (protected static on the base class), backed by a `Map<typeof Entity, Map<key, EntityObserver>>` on `Entity`. Each `watch*` method on a subclass is a one-liner — picks a key (e.g. `single:${id}`, `by-station:${stationId}`, or `'all'`) and calls `this.observe(...).subscribe(callback)`. No per-subclass storage declarations.
+
+**`watch*` is for config state, not live state.** Anything persisted in Dexie (Stations, Benches, Panels, Devices, layouts) flows through `watch*`. Live runtime values from devices (current VFO, S-meter readings, PTT) do *not* go through `EntityObserver` or `liveQuery` — they will flow through a separate pub/sub bus from Adapters to Panels (see "Pub/sub" below). Don't try to extend the watch API to cover device telemetry; that's a different problem with different primitives.
 
 ### Storage layer (`src/domain/database.ts`)
 
@@ -59,15 +68,15 @@ Dexie. Single shared `hubshackDB` instance. The rules that aren't visible from r
 
 - **Foreign keys reference `id`, never natural keys.** Callsigns change; ULIDs don't.
 - **Schema versions are append-only once real data exists.** Add `.version(N).stores({...}).upgrade(...)` blocks rather than editing version 1.
-- **Keep Dexie confined to `src/domain/`.** Outside this directory, subscribe via `observe*`, not `liveQuery` directly.
+- **Keep Dexie confined to `src/domain/`.** Outside this directory, subscribe via `watch*`, not `liveQuery` directly.
 
 ### App-state layer (`src/app/app-state.svelte.ts`)
 
 The `appState` singleton holds boot-level UI state. The constraints:
 
 - **Not a cache for arbitrary entities.** Only the *current* user and station, plus loading flags. Don't add fields for other entities.
-- **No `$effect.root`.** Transitions are imperative through setters; the observe callbacks are the only async events the class listens to.
-- **`loading` is true until both observer callbacks have fired at least once.** Views consume this; don't replicate the check elsewhere.
+- **No `$effect.root`.** Transitions are imperative through setters; the watch callbacks are the only async events the class listens to.
+- **`loading` is true until both watch callbacks have fired at least once.** Views consume this; don't replicate the check elsewhere.
 
 ### Reactivity tiers
 
@@ -159,24 +168,32 @@ The `*Pane` suffix on file and class (`BenchPane`, `BenchPaneViewModel`) keeps t
 **Pane self-sufficiency rules:**
 
 - A Pane's VM never imports another Pane's VM, takes one as a constructor arg, or receives the parent view's VM.
-- Pane VMs source data from `appState` and domain `observe*` APIs only. No prop-drilling.
-- **Shared transient state belongs in the domain**, not on a parent VM passed down. E.g. the active Bench tab lives on the Station entity, so Tabs writes it and Bench reads it via the Station observer.
+- Pane VMs source data from `appState` and domain `watch*` APIs only. No prop-drilling.
+- **Shared transient state belongs in the domain**, not on a parent VM passed down. E.g. the active Bench tab lives on the Station entity, so Tabs writes it and Bench reads it via the Station watcher.
 - View-scoped state that doesn't fit the domain (e.g. "is the panel library collapsed") stays local to the one Pane that owns it.
 
 ### View-model lifecycle
 
-VMs that subscribe to anything follow `start()` / `stop()`. The view drives it from a single `$effect`:
+VMs own their own subscription lifecycle. The constructor sets up observation inside `$effect`, and the view just constructs the VM:
 
 ```svelte
 const viewModel = new FooViewModel()
-
-$effect(() => {
-  viewModel.start()
-  return () => viewModel.stop()
-})
 ```
 
-Constructors don't do I/O. Views don't manage subscriptions directly.
+```ts
+// foo-view-model.svelte.ts
+export default class FooViewModel {
+  #thing = $state<Thing | null>(null)
+
+  constructor() {
+    $effect(() => Thing.watch(id, t => { this.#thing = t }))
+  }
+}
+```
+
+The `watch*` API returns an `Unsubscribe`, which is exactly what `$effect`'s cleanup expects — `return` it directly. Svelte tears down the subscription when the surrounding component unmounts.
+
+VMs are constructed in a Svelte reactive context (a component's `<script>`). Tests that exercise observation wrap construction in `$effect.root(() => { ... })`.
 
 ## Components (`src/components/`)
 
@@ -239,13 +256,14 @@ Considered and intentionally deferred. Don't build until asked:
 - **Identity map for reactive entities.** Will change the contract of `fetch` when added.
 - **`asyncDerived` / observable→state bridge.** Don't extract until a third consumer wants it.
 - **Optimistic UI / undo.** `save()` is just `await db.put(...)`.
-- **Cloud sync.** Architecture allows it (ULIDs, FK-by-id, async, observe-as-source-of-truth) but no sync code exists.
+- **Cloud sync.** Architecture allows it (ULIDs, FK-by-id, async, watch-as-source-of-truth) but no sync code exists.
 - **Migration tooling.** v1 schema is still mutable; no real data yet.
 - **Multi-user on one machine.** `fetchAll` supports it but UI assumes one operator.
 - **Formal MVVM abstractions.** Stores are plain classes with `$state` / `$derived`.
 - **Setup as a multi-step flow.** One view, three fields. Devices come later, separately.
 - **Icon library.** Radio-domain glyphs (S-meter, SWR, rotator compass) don't exist in general icon sets. Hand-drawn SVG only, to keep one visual language.
 - **`svelte-dnd-action`.** Will be the choice when bench drops are wired (Svelte-native, animates, works with flex — `dnd-kit` is React-only, native HTML5 DnD fights touch). Not installed yet.
+- **Audio DSP through the current reactive layer.** When audio arrives (waterfalls, FT8, packet), it runs in `AudioWorklet` on a real-time thread. Sample-rate data never crosses into Svelte state, viewmodels, `EntityObserver`, or Dexie. Worklet ↔ main thread communicates at UI rate (~60Hz) via `MessagePort` or `SharedArrayBuffer`, carrying summaries (peaks, FFT bins, decoded messages), not raw samples. Heavy decoders (FT8 LDPC, weak-signal modes) likely belong in WebAssembly inside a worker, not the main thread. **Don't try to generalize the config-plane patterns to cover audio** — it's a different subsystem with different primitives.
 
 ## When You're Unsure
 
@@ -253,4 +271,5 @@ Considered and intentionally deferred. Don't build until asked:
 - **Adding a persistent entity** → extend `Entity`, follow the shape of `User` / `Station`.
 - **Adding a UI screen** → it's a View. User-facing language stays in the radio domain.
 - **Adding reactivity** → don't bolt `$state` onto domain classes. Reactivity lives above the domain.
-- **Subscribing to DB changes** → use the entity's `observe*`, not Dexie's `liveQuery` directly.
+- **Picking a PanelType id** → choose carefully and treat it as permanent. Panel *instances* persist a reference to their PanelType id; renaming or reusing an id breaks existing user layouts. New PanelType, new id — always.
+- **Subscribing to DB changes** → use the entity's `watch*`, not Dexie's `liveQuery` directly.

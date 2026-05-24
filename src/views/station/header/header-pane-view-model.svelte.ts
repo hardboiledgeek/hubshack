@@ -3,9 +3,6 @@ import type User from '@domain/user'
 import type Station from '@domain/station'
 
 export default class HeaderPaneViewModel {
-  start(): void {}
-  stop(): void {}
-
   get user(): User | null {
     return appState.currentUser
   }

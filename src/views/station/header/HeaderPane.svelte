@@ -5,11 +5,6 @@
   let { class: className = '' }: { class?: string } = $props()
 
   const viewModel = new HeaderPaneViewModel()
-
-  $effect(() => {
-    viewModel.start()
-    return () => viewModel.stop()
-  })
 </script>
 
 <header class="flex items-center justify-between border border-white/10 px-6 py-3 {className}">
