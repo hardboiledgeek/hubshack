@@ -1,5 +1,5 @@
 import { appRouter } from '@app/app-router.svelte'
-import { appState } from '@app/app-state.svelte'
+import { fetchAppState } from '@app/app-state.svelte'
 import User from '@domain/user'
 import Station from '@domain/station'
 import Bench from '@domain/bench'
@@ -9,6 +9,7 @@ export default class SetupViewModel {
   operator = $state('')
   station = $state('')
   #submitting = $state(false)
+  #appState = fetchAppState()
 
   get submitting(): boolean {
     return this.#submitting
@@ -23,13 +24,13 @@ export default class SetupViewModel {
     this.#submitting = true
     try {
       const user = await User.create(this.callsign.trim(), this.operator.trim())
-      appState.currentUser = user
+      this.#appState.currentUser = user
 
       const station = await Station.create(user, this.station.trim())
       const bench = await Bench.create(station, 'Main')
       station.activeBenchId = bench.id
       await station.save()
-      appState.currentStation = station
+      this.#appState.currentStation = station
 
       appRouter.routeToStation()
     } finally {

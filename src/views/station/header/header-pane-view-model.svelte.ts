@@ -1,13 +1,10 @@
-import { appState } from '@app/app-state.svelte'
-import type User from '@domain/user'
-import type Station from '@domain/station'
+import { fetchAppState } from '@app/app-state.svelte'
+
+const PLACEHOLDER = '—'
 
 export default class HeaderPaneViewModel {
-  get user(): User | null {
-    return appState.currentUser
-  }
+  #appState = fetchAppState()
 
-  get station(): Station | null {
-    return appState.currentStation
-  }
+  callsign = $derived(this.#appState.currentUser?.callsign ?? PLACEHOLDER)
+  stationName = $derived(this.#appState.currentStation?.stationName ?? PLACEHOLDER)
 }

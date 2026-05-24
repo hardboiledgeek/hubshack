@@ -1,11 +1,12 @@
 import { appRouter } from '@app/app-router.svelte'
-import { appState } from '@app/app-state.svelte'
+import { fetchAppState } from '@app/app-state.svelte'
 import { TAGLINES } from './taglines'
 
 const MINIMUM_DISPLAY_MS = 3000
 
 export default class SplashViewModel {
   #timeRemaining = $state(true)
+  #appState = fetchAppState()
 
   constructor() {
     setTimeout(() => (this.#timeRemaining = false), MINIMUM_DISPLAY_MS)
@@ -16,11 +17,11 @@ export default class SplashViewModel {
   }
 
   get loading(): boolean {
-    return appState.loading || this.#timeRemaining
+    return !this.#appState.userLoaded || !this.#appState.stationLoaded || this.#timeRemaining
   }
 
   routeToNext(): void {
-    if (appState.isSetup) {
+    if (this.#appState.currentUser && this.#appState.currentStation) {
       appRouter.routeToStation()
     } else {
       appRouter.routeToSetup()

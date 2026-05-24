@@ -3,6 +3,10 @@
   import PlusIcon from '@components/PlusIcon.svelte'
 
   const viewModel = new DevicesPaneViewModel()
+
+  function onAddDevice() {
+    viewModel.addDevice()
+  }
 </script>
 
 <section class="flex flex-col gap-2 border border-white/10 p-4">
@@ -23,7 +27,7 @@
 
   <button
     type="button"
-    onclick={() => viewModel.addDevice()}
+    onclick={onAddDevice}
     class="mt-2 flex cursor-pointer items-center gap-2 self-start rounded-xs border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.3em] text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
   >
     <PlusIcon class="h-3 w-3" />

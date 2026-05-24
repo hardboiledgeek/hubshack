@@ -13,10 +13,10 @@
       Hubshack
     </h1>
     <span class="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-500/70">
-      Station <span class="ml-2 text-amber-200">{viewModel.station?.stationName ?? '—'}</span>
+      Station <span class="ml-2 text-amber-200">{viewModel.stationName}</span>
     </span>
     <span class="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-500/70">
-      Op <span class="ml-2 text-amber-200">{viewModel.user?.callsign ?? '—'}</span>
+      Op <span class="ml-2 text-amber-200">{viewModel.callsign}</span>
     </span>
   </div>
 

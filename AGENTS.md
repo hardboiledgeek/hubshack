@@ -2,25 +2,44 @@
 
 Hubshack is integrated ham radio rig control software. The browser is the host; radios and accessories connect over WebSerial and Web Audio. The product is built around the operator's workflow, not the hardware vendor's UI.
 
+## How to read this doc
+
+If this is your first time in the repo, read in this order:
+
+1. **Domain Terminology** — disambiguates Panel/Pane/PanelType. Everything else assumes you know these words.
+2. **Architecture → Domain layer** — the shape every entity follows.
+3. **Views, Panes, View Models** — how the UI is decomposed.
+4. **Current scaffolding state** — what's wired to the domain and what's still mocked.
+
+The rest is reference. **Deliberate Non-Goals** at the end tells you what _not_ to build.
+
 ## Domain Terminology
 
 These names appear in the UI, in code, and in conversations with users. They are radio-native by design — use them consistently.
 
-| Term        | Meaning                                                                                                                                                  |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Shack**   | The whole application. The operator's digital shack.                                                                                                     |
-| **Station** | A physical/logical operating setup: location, rig(s), antennas. A user can have several.                                                                 |
-| **Bench**   | A named arrangement of panels for a specific kind of operating — e.g. "FT8 bench", "contest bench", "nets bench". A tab within a Station.                |
-| **Panel**   | An individual UI element a user arranges on a bench: VFO, S-meter, log entry, rotator control, waterfall, etc. User-facing word for an *instance* placed on a Bench. |
-| **PanelType** | The definition of a kind of Panel (code, not data). Lives in `src/panels/`. A single PanelType can have many Panel instances across Benches, each with its own config and layout. |
-| **Device**  | A piece of physical gear connected to a Station: radio, amp, rotator, etc. Devices are owned by a Station; panels across many Benches subscribe to them. |
-| **Adapter** | The piece of code that knows how to talk to a Device and exposes its capabilities on the bus. Panels and Devices are decoupled by Adapters — neither knows about the other directly. |
-| **View**    | A routable top-level screen in the app (Splash, Setup, Station). Lives in `src/views/`. Internal term, not user-facing.                                  |
-| **Pane**    | A self-contained chunk of a View (header, sidebar, tab strip, etc.). Named to avoid collision with radio-domain "Panel."                                 |
+| Term          | Meaning                                                                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Shack**     | The whole application. The operator's digital shack.                                                                                                                                 |
+| **Station**   | A physical/logical operating setup: location, rig(s), antennas. A user can have several.                                                                                             |
+| **Bench**     | A named arrangement of panels for a specific kind of operating — e.g. "FT8 bench", "contest bench", "nets bench". A tab within a Station.                                            |
+| **Panel**     | An individual UI element a user arranges on a bench: VFO, S-meter, log entry, rotator control, waterfall, etc. User-facing word for an _instance_ placed on a Bench.                 |
+| **PanelType** | The definition of a kind of Panel (code, not data). Lives in `src/panels/`. A single PanelType can have many Panel instances across Benches, each with its own config and layout.    |
+| **Device**    | A piece of physical gear connected to a Station: radio, amp, rotator, etc. Devices are owned by a Station; panels across many Benches subscribe to them.                             |
+| **Adapter**   | The piece of code that knows how to talk to a Device and exposes its capabilities on the bus. Panels and Devices are decoupled by Adapters — neither knows about the other directly. |
+| **View**      | A routable top-level screen in the app (Splash, Setup, Station). Lives in `src/views/`. Internal term, not user-facing.                                                              |
+| **Pane**      | A self-contained chunk of a View (header, sidebar, tab strip, etc.). Named to avoid collision with radio-domain "Panel."                                                             |
 
 Hierarchy of persisted concepts: **Shack → Station → Bench → Panel**, with Devices parallel to Bench under Station.
 
-PanelTypes and Adapters are **code, not data** — registered at app start, looked up by id. Only Panel *instances* are persisted.
+PanelTypes and Adapters are **code, not data** — registered at app start, looked up by id. Only Panel _instances_ are persisted.
+
+## Current scaffolding state
+
+The architecture is fully described below, but the code hasn't all caught up. As of now:
+
+- **Wired to the domain:** `User`, `Station`, `Bench`. `HeaderPane` and `TabsPane` consume them through `AppState` and `watch*`.
+- **In-VM mocks (no domain entity yet):** `DevicesPane`, `LibraryPane` (PanelTypes), `BenchPane` (Panels). Each VM holds a hard-coded array. Don't assume these are wired — wiring them is the next round of work.
+- **Not built:** Devices entity, PanelTypes registry, Panel entity, pub/sub bus, drag-and-drop. Test suite is empty except for a placeholder.
 
 ## Persistent Domains
 
@@ -38,51 +57,59 @@ Most panels get their data from Devices via pub/sub, not from persisted state. *
 
 ### Domain layer (`src/domain/`)
 
-Follow the shape of `User` and `Station`. The non-obvious rules:
+Follow the shape of `User`, `Station`, and `Bench`. The non-obvious rules:
 
 - **IDs are ULIDs**, not UUIDs. Sort lexicographically by creation time. `Entity.generateId()` mints them.
-- **Constructors take discrete positional arguments**, not row objects. `UserRow` / `StationRow` are a storage detail confined to `database.ts` and the entity's own `fetch` / `save`.
+- **List order falls out of IDs.** `Bench.fetchForStation` uses `.sortBy('id')` — ULID order = creation order. No separate `order` column on listable entities.
+- **Constructors take discrete positional arguments**, not row objects. `UserRow` / `StationRow` / `BenchRow` are a storage detail confined to `database.ts` and the entity's own `fetch` / `save`.
 - **All public methods return Promises**, even when the underlying call is sync. Lets us swap storage without rippling through callers.
 - **Relationship accessors return domain objects, not IDs**: `user.stations()` returns `Promise<Station[]>`. `station.user()` throws on dangling references — that's a data-integrity bug, not a null case.
 - **Methods take the related entity, not its id**: `Station.fetchForUser(user: User)`, not `fetchForUser(userId: string)`.
 - **Use `#`-private fields for runtime privacy** (e.g. entity id). TypeScript `private` is compile-time only and doesn't survive `$state` proxies.
+- **Transient shared state belongs on the domain entity, not on a VM.** The canonical example is `Station.activeBenchId`: it's read by `TabsPane`, written when the user clicks a tab, and persisted by side effect. Don't lift it to a parent VM.
 - **`null` and `undefined` are not interchangeable.** `null` is intentional, set by code, expected — the right value for "entity missing/deleted" or any deliberately-empty slot. `undefined` is "JavaScript did that" or "not yet set" — uninitialized fields, missing object properties, unsignaled state. Type signatures should say `T | null` when absence is part of the contract; reserve `T | undefined` for transient internal state (e.g. `EntityObserver`'s `#lastValue` sentinel for "no emission yet"). Never use `??` to paper over the distinction.
 
 #### The watch API
 
 Each entity exposes `watch*` methods parallel to its `fetch*` methods, returning an `Unsubscribe`. Implementation goes through `EntityObserver` (`src/domain/entity-observer.ts`), which wraps Dexie's `liveQuery`; consumers don't see Dexie.
 
-**Contract:** callbacks fire immediately with the current value, then again on every change — *including changes from other tabs*. `watch(id, cb)` passes `null` when the entity is deleted or missing.
+**Contract:** callbacks fire immediately with the current value, then again on every change — _including changes from other tabs_. `watch(id, cb)` passes `null` when the entity is deleted or missing.
 
 **Queries must never resolve to `undefined`.** `EntityObserver` uses `undefined` as the "no value emitted yet" sentinel for replay-on-subscribe. Singleton fetches normalize `undefined` (Dexie's "row not found") to `null` before returning — e.g. `row ? new Bench(...) : null`. Don't write a `watch*` whose query can pass `undefined` through to `liveQuery`; replay will silently break.
 
 **Sharing:** subscriptions are deduplicated per (subclass, key). Ten VMs calling `Bench.watch(sameId, ...)` share one underlying `liveQuery`; new subscribers get the cached last value immediately. When the last subscriber unsubscribes, the underlying query is torn down.
 
-Implemented via `Entity.observe<T>(key, query)` (protected static on the base class), backed by a `Map<typeof Entity, Map<key, EntityObserver>>` on `Entity`. Each `watch*` method on a subclass is a one-liner — picks a key (e.g. `single:${id}`, `by-station:${stationId}`, or `'all'`) and calls `this.observe(...).subscribe(callback)`. No per-subclass storage declarations.
+Implemented via `Entity.observe<T>(key, query)` (protected static on the base class), backed by a `Map<typeof Entity, Map<key, EntityObserver>>` on `Entity`. The partitioning trick: in a static method, `this` is the subclass constructor — so `Entity.#observers.get(this)` returns the bucket for `Bench` when called from `Bench.watch`, without each subclass declaring its own storage. Each `watch*` method on a subclass is a one-liner — picks a key (e.g. `single:${id}`, `by-station:${stationId}`, or `'all'`) and calls `this.observe(...).subscribe(callback)`.
 
-**`watch*` is for config state, not live state.** Anything persisted in Dexie (Stations, Benches, Panels, Devices, layouts) flows through `watch*`. Live runtime values from devices (current VFO, S-meter readings, PTT) do *not* go through `EntityObserver` or `liveQuery` — they will flow through a separate pub/sub bus from Adapters to Panels (see "Pub/sub" below). Don't try to extend the watch API to cover device telemetry; that's a different problem with different primitives.
+**`watch*` is for config state, not live state.** Anything persisted in Dexie (Stations, Benches, Panels, Devices, layouts) flows through `watch*`. Live runtime values from devices (current VFO, S-meter readings, PTT) do _not_ go through `EntityObserver` or `liveQuery` — they will flow through a separate pub/sub bus from Adapters to Panels (see "Pub/sub" below). Don't try to extend the watch API to cover device telemetry; that's a different problem with different primitives.
 
 ### Storage layer (`src/domain/database.ts`)
 
 Dexie. Single shared `hubshackDB` instance. The rules that aren't visible from reading the file:
 
 - **Foreign keys reference `id`, never natural keys.** Callsigns change; ULIDs don't.
-- **Schema versions are append-only once real data exists.** Add `.version(N).stores({...}).upgrade(...)` blocks rather than editing version 1.
+- **Schema versions are append-only once real data exists.** Add `.version(N).stores({...}).upgrade(...)` blocks rather than editing version 1. _Currently version 1 is still mutable — no real data yet._
 - **Keep Dexie confined to `src/domain/`.** Outside this directory, subscribe via `watch*`, not `liveQuery` directly.
 
-### App-state layer (`src/app/app-state.svelte.ts`)
+### App-wide state and singletons
 
-The `appState` singleton holds boot-level UI state. The constraints:
+Two patterns coexist for app-wide things; pick by lifecycle:
 
-- **Not a cache for arbitrary entities.** Only the *current* user and station, plus loading flags. Don't add fields for other entities.
-- **No `$effect.root`.** Transitions are imperative through setters; the watch callbacks are the only async events the class listens to.
-- **`loading` is true until both watch callbacks have fired at least once.** Views consume this; don't replicate the check elsewhere.
+- **`AppRouter` (`src/app/app-router.svelte.ts`) — static singleton.** Private constructor, `AppRouter.instance` accessor, exported as `appRouter`. Use this pattern when the thing has no per-mount subscriptions to manage.
+- **`AppState` (`src/app/app-state.svelte.ts`) — context-registered singleton.** Constructed once in `App.svelte`, registered via `registerAppState`, consumed by `fetchAppState()`. Use this pattern when the thing owns `$effect`-driven subscriptions that need to live inside the component tree.
 
-### Reactivity tiers
+#### AppState
 
-- **App-wide singleton** — `appState`. Exists.
-- **Page-scoped view models** — class instantiated inside a view's `<script>`, discarded on unmount. The pattern for view/Pane state.
-- **Identity-mapped reactive entities** — *not built.* Today `User.fetch(id)` returns a fresh instance each call. **Don't try to make a single entity instance reactive in place** — `#` private fields are invisible to Svelte's `$state` proxies. Reactivity lives *above* the domain, not on it.
+`AppState` is the app-wide reactive view over session selection — _which_ user and station are currently active, plus their live projection from the domain. localStorage is the persistence layer; `AppState` is the runtime source of truth.
+
+- One instance per running app. Writes from one VM are seen reactively by every other VM in the same render — no instance-divergence issues.
+- Setters write localStorage and flip the internal id `$state`. An internal `$effect` picks up the id change and re-watches automatically.
+- **Not a cache for arbitrary entities.** Only the _current_ user and station, plus per-entity `loaded` flags. Don't add fields for other entities.
+- Exposes raw signals, not derived UX state. `userLoaded` and `stationLoaded` say "has this watch fired at least once." Composed flags like "splash is still loading" belong in the consuming viewmodel.
+
+#### Don't try to make domain entities reactive
+
+`User.fetch(id)` returns a fresh instance each call. **Don't try to make a single entity instance reactive in place** — `#` private fields are invisible to Svelte's `$state` proxies. Reactivity lives _above_ the domain (in VMs, in `AppState`), not on it. An identity-mapped reactive entity layer is a deliberate Non-Goal.
 
 ### Pub/sub — not yet built
 
@@ -90,52 +117,36 @@ Device → Panel flow will go through a topic bus (`vfoA.frequency`, etc.). Pers
 
 ### Routing (`src/app/app-router.svelte.ts`)
 
-Enum-based router singleton. Routes: `Splash`, `Setup`, `Station`.
+Enum-based static singleton. Routes: `Splash`, `Setup`, `Station`.
 
 - **`Splash` is the entry point** and owns the `loading` / `isSetup` routing decision. `App.svelte` is just a switch — no checks there.
 - Setup writes `appState.currentUser` / `appState.currentStation` after creating the entities, then calls `appRouter.routeToStation()`. It also creates a default "Main" Bench and sets it as the Station's `activeBenchId` before the route — a Station is never persisted without at least one Bench.
 
 ## Station View Layout
 
-The Station view is the operator's working surface. Its chrome is fixed; the bench area is what the user arranges.
-
-```
-┌────────────────────────────────────────────────────────────┐
-│ HUBSHACK · Station name · Op callsign           [gear]     │  header
-├──────────┬─────────────────────────────────────────────────┤
-│ DEVICES  │  [Bench 1] [Bench 2] [Bench 3] [+]              │  bench tabs
-│  · IC-705│ ─────────────────────────────────────────────── │
-│  · Rotor │                                                 │
-│  + Add   │           (panels arranged here)                │
-├──────────┤                                                 │
-│ PANELS ▾ │                                                 │  collapsible
-│  Tuning  │                                                 │
-│   VFO    │                                                 │
-│   Memory │                                                 │
-└──────────┴─────────────────────────────────────────────────┘
-```
+The Station view is the operator's working surface. Its chrome is fixed; the bench area is what the user arranges. Implemented as a CSS grid on `<main>` in `Station.svelte`: two columns (sidebar, content), three rows (header, tab strip, bench).
 
 - **Header** — wordmark left; station name + operator callsign center/right; settings gear right.
 - **Devices** sidebar section — always visible. Small finite list. `+ Add` at the bottom.
 - **Panel Library** — collapsible. Lists `PanelType`s filtered by what installed Devices' adapters can satisfy. Drag source for adding panels to the active Bench.
 - **Bench tab strip** — one tab per Bench, `+` after the last creates a new one.
-- **Bench area** — flex/tile layout. Drop target. **Per-instance layout overrides (`fullWidth`, span, etc.) live on the Bench, not on the Panel.**
+- **Bench area** — flex/tile layout. Drop target. **Per-instance layout overrides (`fullWidth`, span, etc.) will live on the Bench, not on the Panel.**
 
 ## Panels and Adapters
 
 Three players meet at the bus:
 
 - **PanelType** — code-defined kind of panel. Declares topics it subscribes/publishes, config schema, default layout hints.
-- **Panel** — persisted *instance* of a PanelType on a Bench. Holds the user's config for this placement.
+- **Panel** — persisted _instance_ of a PanelType on a Bench. Holds the user's config for this placement.
 - **Adapter** — code that talks to a Device and publishes/subscribes topics. Each Device declares which Adapters it can host.
 
 **Compatibility flows through Adapters, not Devices:**
 
-- A PanelType lists adapter *capabilities* (topics) it requires — not "compatible devices."
+- A PanelType lists adapter _capabilities_ (topics) it requires — not "compatible devices."
 - The Panel Library shows a PanelType iff every capability it needs is satisfied by some installed Device.
 - Adding a Device unlocks the Panels its adapters provide; removing it hides them.
 
-**Layout rule:** Panel owns what it *is* (config). Bench owns where it *goes* (per-instance layout). Same PanelType on two Benches can be different sizes; the same Panel instance is never on two Benches.
+**Layout rule:** Panel owns what it _is_ (config). Bench owns where it _goes_ (per-instance layout). Same PanelType on two Benches can be different sizes; the same Panel instance is never on two Benches.
 
 ## Views, Panes, View Models
 
@@ -168,9 +179,33 @@ The `*Pane` suffix on file and class (`BenchPane`, `BenchPaneViewModel`) keeps t
 **Pane self-sufficiency rules:**
 
 - A Pane's VM never imports another Pane's VM, takes one as a constructor arg, or receives the parent view's VM.
-- Pane VMs source data from `appState` and domain `watch*` APIs only. No prop-drilling.
-- **Shared transient state belongs in the domain**, not on a parent VM passed down. E.g. the active Bench tab lives on the Station entity, so Tabs writes it and Bench reads it via the Station watcher.
+- Pane VMs source data from `AppState` and domain `watch*` APIs only. No prop-drilling.
+- **Shared transient state belongs in the domain**, not on a parent VM passed down. E.g. the active Bench tab lives on the Station entity (`Station.activeBenchId`), so Tabs writes it and any future Bench reader gets it via the Station watcher.
 - View-scoped state that doesn't fit the domain (e.g. "is the panel library collapsed") stays local to the one Pane that owns it.
+
+#### VM context — register only when descendants need it
+
+A Pane VM is shared with its descendants via Svelte context **iff a descendant component needs it.** The VM module exports a file-local `ViewModelSymbol`, a `registerViewModel(vm)` helper (calls `setContext`), and a `fetchViewModel()` helper (calls `getContext`, throws if not registered). The Pane root component calls `registerViewModel`; descendants call `fetchViewModel`.
+
+Today only `TabsPane` does this — `Tab.svelte` and `TabMenu.svelte` both call `fetchViewModel` to reach `TabsPaneViewModel`. `HeaderPane`, `DevicesPane`, `LibraryPane`, `BenchPane` keep their VMs as `<script>` locals because nothing descends from them that needs the VM. **Don't add `register`/`fetch` boilerplate prophylactically** — add it the first time a child component needs the VM.
+
+Naming inside the VM file is unqualified (`registerViewModel`, `fetchViewModel`) — the VM type is implicit from the import path.
+
+**Why context, not props, when it's used:** the VM is feature-scoped state. Every component inside the Pane's subtree may need it, and prop-drilling through intermediate components hides nothing and clutters call sites. Symbols give type safety; the `fetch` helper centralizes the "not set" error.
+
+**Display-only components (anything in `src/components/`) take primitive props** and do not call `fetchViewModel`. Reusability across features means refusing to know about any specific VM.
+
+**Local component state stays local.** Display-only state like `menuOpen` belongs on the component (`let menuOpen = $state(false)`), not the VM. The VM owns _application_ state (persisted or shared across the Pane); the component owns _renderer_ state (one widget's open/closed, hover, etc.).
+
+#### Projection rule — VMs present, components render
+
+A VM exposes data in the shape its component needs to render, not the shape the domain stores it in. Components should not reach into domain entities to display fields, compute identity comparisons, or derive view-flags. Concretely:
+
+- **Strings, not entities, for text rendering.** `HeaderPaneViewModel` exposes `callsign: string` and `stationName: string` (derived from `User`/`Station`), not the entities themselves. Placeholders for "not loaded" belong on the VM, not in the template.
+- **Pre-computed booleans, not raw ids to compare.** `TabsPaneViewModel` exposes `tabs: BenchTab[]` where each row carries `{ id, name, active, editing }`. The component renders; it does not compare `bench.id === viewModel.activeBenchId`.
+- **View-shaped types are local to the VM file.** Name them for the view (`BenchTab`, not generic `Row`). Export only if the consuming component imports the type. Domain entities (`Bench`, `Station`) stay private in the VM.
+
+Action methods (`setActiveBench`, `commitRename`, `submit`, etc.) take raw inputs from the component (an id, a name) and translate them into domain operations. The component still doesn't see domain entities — it passes ids back, the VM does the lookup.
 
 ### View-model lifecycle
 
@@ -186,7 +221,11 @@ export default class FooViewModel {
   #thing = $state<Thing | null>(null)
 
   constructor() {
-    $effect(() => Thing.watch(id, t => { this.#thing = t }))
+    $effect(() =>
+      Thing.watch(id, t => {
+        this.#thing = t
+      })
+    )
   }
 }
 ```
@@ -197,13 +236,54 @@ VMs are constructed in a Svelte reactive context (a component's `<script>`). Tes
 
 ## Components (`src/components/`)
 
+Generic, VM-unaware UI primitives. Each accepts a `class` prop and applies it to its root.
+
+### Existing primitives
+
+- **`InlineEdit`** — the canonical inline rename. Props: `value`, `onCommit(value)`, optional `onCancel`. Behavior: autofocus + select on mount; **blur commits**, Enter commits, Escape cancels, empty/whitespace value calls `onCancel` instead of `onCommit`. Used by Tab rename. If you need another inline-edit affordance, reach for this — don't reinvent.
+- **Icons** — `ChevronIcon`, `GearIcon`, `PlusIcon`. Inline SVG with `stroke="currentColor"` so they inherit Tailwind text color. No icon library — see Non-Goals.
+
+### Rules
+
 - **Accept a `class` prop** for caller-supplied layout. Svelte does not forward classes through component boundaries:
+
   ```svelte
   let { class: className = '' }: { class?: string } = $props()
   ```
+
   Apply to the root: `class="...base... {className}"`.
 
-- **Icons are inline SVG** using `stroke="currentColor"` so they inherit text color from Tailwind. No icon library — see Non-Goals.
+- **Event handlers are `function` declarations in `<script>`, referenced by name in markup.** No inline arrows in attributes. Factory handlers that close over iteration values use outer `function` + inner arrow:
+
+  ```svelte
+  function onActivate(id: string) {
+    return () => viewModel.setActiveBench(id)
+  }
+  <!-- ... -->
+  <button onclick={onActivate(tab.id)}>...</button>
+  ```
+
+  _Inner_ callbacks attached to listeners inside Svelte actions or other setup functions can be arrows — the `function` rule is about the top-level handler surface, not every nested closure.
+
+- **Extract conditional class fragments into `$derived`** rather than inlining ternaries in `class=` strings. Keeps the structural classes inline and visible; only the variable bit is named:
+  ```svelte
+  const borderColor = $derived(tab.active ? 'border-amber-400' : 'border-transparent')
+  <div class="relative flex items-center border-b-2 {borderColor}">...</div>
+  ```
+  For components where the whole class string is conditional or has 3+ variants, derive the whole string. For mostly-static class lists with a small conditional, derive only the conditional fragment.
+
+### Svelte actions for DOM lifecycle
+
+Popovers, modals, and other components that need document-level listeners (or imperative DOM setup like autofocus) use a Svelte action (`use:foo`) that attaches listeners and returns `{ destroy }`. The action runs when the element mounts and `destroy` runs when it unmounts — no manual `onMount`/`onDestroy` plumbing.
+
+Two recurring patterns in the codebase:
+
+- **`focusAndSelect`** (in `InlineEdit.svelte`) — one-liner action: `node.focus(); node.select()`. The minimal action; use it whenever an input should be focused on mount.
+- **`dismissOnInteraction`** (in `TabMenu.svelte`) — attaches `mousedown` and `keydown` listeners on `document`, calls `onClose` when the target is outside the node or when Escape is pressed. The shape to copy for any new dismiss-on-outside-click popover.
+
+### `mousedown` vs `click` for popovers
+
+If a popover's dismisser listens on `mousedown` (the pattern in `dismissOnInteraction`, so a click outside dismisses on press, not release), the _opener_ must use `onmousedown` — not `onclick` — to call `event.stopPropagation()`. Otherwise the opener's click bubbles to the document before `onclick` fires, the dismisser sees the click as "outside the not-yet-mounted popover," and the popover closes the instant it opens. See `Tab.svelte`'s menu button for the working example.
 
 ## Conventions
 
@@ -224,7 +304,7 @@ For multi-region top-level layouts (Station), use **CSS grid** on the view's `<m
 
 ### Code style
 
-- **No comments unless the *why* is non-obvious.** Don't narrate what the next line does.
+- **No comments unless the _why_ is non-obvious.** Don't narrate what the next line does.
 - **No backwards-compatibility shims** for code that hasn't shipped.
 - **No emojis** in code, commit messages, or generated text unless asked.
 - **Setters over `setX(value)` methods** when the operation is one assignment. Reserve methods for multi-arg or multi-effect operations.
@@ -242,11 +322,19 @@ src/
   app/         — router, app-state, app-wide singletons
   domain/      — entity classes, database, row types, shared types
   components/  — generic UI primitives
-  views/       — routable top-level screens
-  panels/      — radio panels (user-arrangeable bench contents)
-  stores/      — page-scoped reactive stores (planned)
-spec/          — vitest tests
+  views/       — routable top-level screens, with per-view Panes and VMs
+  panels/      — radio panels (user-arrangeable bench contents) — not built yet
+spec/          — vitest tests (placeholder only; conventions TBD)
 ```
+
+## Testing
+
+Vitest is configured; `spec/` currently contains only a placeholder. Conventions are not yet established. When you add the first real test:
+
+- Tests that touch `$state`, `$derived`, or `watch*` must run inside `$effect.root(() => { ... })` so Svelte's reactive context exists.
+- Mock at the Dexie boundary, not above it — the watch API and `EntityObserver` are part of the system under test.
+
+If you're about to invent a fixture or harness pattern, note it here in the same PR so it's not reinvented next time.
 
 ## Deliberate Non-Goals
 
@@ -268,8 +356,11 @@ Considered and intentionally deferred. Don't build until asked:
 ## When You're Unsure
 
 - **Naming a new thing** → prefer radio-native words over generic tech words. Hams should recognize the language.
-- **Adding a persistent entity** → extend `Entity`, follow the shape of `User` / `Station`.
+- **Adding a persistent entity** → extend `Entity`, follow the shape of `User` / `Station` / `Bench`.
 - **Adding a UI screen** → it's a View. User-facing language stays in the radio domain.
 - **Adding reactivity** → don't bolt `$state` onto domain classes. Reactivity lives above the domain.
-- **Picking a PanelType id** → choose carefully and treat it as permanent. Panel *instances* persist a reference to their PanelType id; renaming or reusing an id breaks existing user layouts. New PanelType, new id — always.
+- **Adding app-wide state** → static singleton like `AppRouter` if it has no subscriptions; context-registered like `AppState` if it observes anything.
+- **Adding a Pane VM** → don't register it in context until a descendant needs it.
+- **Picking a PanelType id** → choose carefully and treat it as permanent. Panel _instances_ persist a reference to their PanelType id; renaming or reusing an id breaks existing user layouts. New PanelType, new id — always.
 - **Subscribing to DB changes** → use the entity's `watch*`, not Dexie's `liveQuery` directly.
+- **Inline editing a field** → use `InlineEdit`. Don't roll a new one.

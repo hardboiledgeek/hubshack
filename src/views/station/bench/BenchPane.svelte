@@ -1,7 +1,11 @@
 <script lang="ts">
   import BenchPaneViewModel from './bench-pane-view-model.svelte'
 
-  let { class: className = '' }: { class?: string } = $props()
+  type Props = {
+    class?: string
+  }
+
+  let { class: className = '' }: Props = $props()
 
   const viewModel = new BenchPaneViewModel()
 </script>
