@@ -1,22 +1,18 @@
-export interface MockPanel {
+import type { Component } from 'svelte'
+import PanelRegistry from '@panels/panel-registry'
+
+export type BenchPanel = {
   id: string
-  typeId: string
   name: string
-  span: 1 | 2
+  component: Component
 }
 
-const MOCK_PANELS: MockPanel[] = [
-  { id: 'p1', typeId: 'vfo', name: 'VFO A', span: 2 },
-  { id: 'p2', typeId: 'smeter', name: 'S-Meter', span: 1 },
-  { id: 'p3', typeId: 'swr', name: 'SWR', span: 1 },
-  { id: 'p4', typeId: 'memory', name: 'Memories', span: 1 },
-  { id: 'p5', typeId: 'rotator', name: 'Rotator', span: 1 }
-]
-
 export default class BenchPaneViewModel {
-  #panels = $state<MockPanel[]>(MOCK_PANELS)
-
-  get panels(): MockPanel[] {
-    return this.#panels
-  }
+  panels = $derived<BenchPanel[]>(
+    PanelRegistry.available().map(panel => ({
+      id: panel.id,
+      name: panel.name,
+      component: panel.component
+    }))
+  )
 }

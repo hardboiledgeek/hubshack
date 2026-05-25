@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fetchViewModel, type BenchTab } from './tabs-pane-view-model.svelte'
   import TabMenu from './TabMenu.svelte'
-  import ChevronIcon from '@components/ChevronIcon.svelte'
+  import ChevronIcon from '@components/icons/ChevronIcon.svelte'
   import InlineEdit from '@components/InlineEdit.svelte'
 
   let { tab }: { tab: BenchTab } = $props()

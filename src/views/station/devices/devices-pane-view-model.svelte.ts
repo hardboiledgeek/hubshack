@@ -1,13 +1,18 @@
-export interface MockDevice {
+import type { Component } from 'svelte'
+import DefaultIcon from '@components/icons/DefaultIcon.svelte'
+import RadioIcon from '@components/icons/RadioIcon.svelte'
+import RotatorIcon from '@components/icons/RotatorIcon.svelte'
+
+export type MockDevice = {
   id: string
   name: string
-  model: string
+  icon: Component
 }
 
 const MOCK_DEVICES: MockDevice[] = [
-  { id: 'd1', name: 'Shack Rig', model: 'Icom IC-7300' },
-  { id: 'd2', name: 'Portable', model: 'Icom IC-705' },
-  { id: 'd3', name: 'Rotator', model: 'Yaesu G-5500' }
+  { id: 'd1', name: 'Icom IC-7300', icon: RadioIcon },
+  { id: 'd2', name: 'Icom IC-705', icon: RadioIcon },
+  { id: 'd3', name: 'Yaesu G-5500', icon: RotatorIcon }
 ]
 
 export default class DevicesPaneViewModel {

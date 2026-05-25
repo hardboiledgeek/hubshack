@@ -1,6 +1,6 @@
 <script lang="ts">
   import HeaderPaneViewModel from './header-pane-view-model.svelte'
-  import GearIcon from '@components/GearIcon.svelte'
+  import GearIcon from '@components/icons/GearIcon.svelte'
 
   let { class: className = '' }: { class?: string } = $props()
 

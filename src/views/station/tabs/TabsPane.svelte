@@ -1,7 +1,7 @@
 <script lang="ts">
   import TabsPaneViewModel, { registerViewModel } from './tabs-pane-view-model.svelte'
   import Tab from './Tab.svelte'
-  import PlusIcon from '@components/PlusIcon.svelte'
+  import PlusIcon from '@components/icons/PlusIcon.svelte'
 
   let { class: className = '' }: { class?: string } = $props()
 

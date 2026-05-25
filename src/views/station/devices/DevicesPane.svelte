@@ -1,6 +1,6 @@
 <script lang="ts">
   import DevicesPaneViewModel from './devices-pane-view-model.svelte'
-  import PlusIcon from '@components/PlusIcon.svelte'
+  import PlusIcon from '@components/icons/PlusIcon.svelte'
 
   const viewModel = new DevicesPaneViewModel()
 
@@ -15,11 +15,12 @@
   {#if viewModel.devices.length === 0}
     <p class="font-sans text-sm text-neutral-400">No devices yet.</p>
   {:else}
-    <ul class="flex flex-col gap-1">
+    <ul class="flex flex-col">
       {#each viewModel.devices as device (device.id)}
-        <li class="flex flex-col rounded-xs px-2 py-1.5 hover:bg-white/5">
-          <span class="font-sans text-sm text-neutral-200">{device.name}</span>
-          <span class="font-mono text-[10px] uppercase tracking-wider text-amber-500/50">{device.model}</span>
+        {@const DeviceIcon = device.icon}
+        <li class="flex items-center gap-2 rounded-xs px-2 py-1 hover:bg-white/5">
+          <DeviceIcon class="h-5 w-5 shrink-0 text-amber-500/70" />
+          <span class="font-sans text-base text-neutral-200">{device.name}</span>
         </li>
       {/each}
     </ul>

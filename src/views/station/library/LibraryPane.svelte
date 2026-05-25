@@ -1,6 +1,6 @@
 <script lang="ts">
   import LibraryPaneViewModel from './library-pane-view-model.svelte'
-  import ChevronIcon from '@components/ChevronIcon.svelte'
+  import ChevronIcon from '@components/icons/ChevronIcon.svelte'
 
   let { class: className = '' }: { class?: string } = $props()
 
@@ -29,9 +29,11 @@
         <div class="flex flex-col gap-1">
           <h3 class="font-mono text-[9px] uppercase tracking-[0.3em] text-amber-500/50">{group.category}</h3>
           <ul class="flex flex-col">
-            {#each group.types as type (type.id)}
-              <li class="cursor-grab rounded-xs px-2 py-1 font-sans text-sm text-neutral-200 hover:bg-white/5">
-                {type.name}
+            {#each group.panels as panel (panel.id)}
+              {@const PanelIcon = panel.icon}
+              <li class="flex cursor-grab items-center gap-2 rounded-xs px-2 py-1 hover:bg-white/5">
+                <PanelIcon class="h-5 w-5 shrink-0 text-amber-500/70" />
+                <span class="font-sans text-base text-neutral-200">{panel.name}</span>
               </li>
             {/each}
           </ul>

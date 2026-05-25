@@ -1,29 +1,20 @@
-export interface MockPanelType {
+import type { Component } from 'svelte'
+import PanelRegistry from '@panels/panel-registry'
+import DefaultIcon from '@components/icons/DefaultIcon.svelte'
+
+export type LibraryPanel = {
   id: string
   name: string
-  category: string
+  icon: Component
 }
 
-export interface PanelCategory {
+export type PanelCategory = {
   category: string
-  types: MockPanelType[]
+  panels: LibraryPanel[]
 }
-
-const MOCK_PANEL_TYPES: MockPanelType[] = [
-  { id: 'vfo', name: 'VFO', category: 'Tuning' },
-  { id: 'memory', name: 'Memory', category: 'Tuning' },
-  { id: 'bandscope', name: 'Bandscope', category: 'Tuning' },
-  { id: 'smeter', name: 'S-Meter', category: 'Metering' },
-  { id: 'swr', name: 'SWR', category: 'Metering' },
-  { id: 'power', name: 'Power', category: 'Metering' },
-  { id: 'qso-entry', name: 'QSO Entry', category: 'Logging' },
-  { id: 'log', name: 'Log', category: 'Logging' },
-  { id: 'rotator', name: 'Rotator', category: 'Antenna' }
-]
 
 export default class LibraryPaneViewModel {
   #collapsed = $state(false)
-  #types = $state<MockPanelType[]>(MOCK_PANEL_TYPES)
 
   get collapsed(): boolean {
     return this.#collapsed
@@ -33,13 +24,22 @@ export default class LibraryPaneViewModel {
     this.#collapsed = !this.#collapsed
   }
 
-  get categories(): PanelCategory[] {
-    const groups = new Map<string, MockPanelType[]>()
-    for (const type of this.#types) {
-      const list = groups.get(type.category) ?? []
-      list.push(type)
-      groups.set(type.category, list)
+  categories = $derived<PanelCategory[]>(this.#groupByCategory())
+
+  #groupByCategory(): PanelCategory[] {
+    const groups = new Map<string, LibraryPanel[]>()
+    for (const panel of PanelRegistry.available()) {
+      const row: LibraryPanel = {
+        id: panel.id,
+        name: panel.name,
+        icon: panel.icon ?? DefaultIcon
+      }
+      for (const category of panel.categories) {
+        const list = groups.get(category) ?? []
+        list.push(row)
+        groups.set(category, list)
+      }
     }
-    return [...groups.entries()].map(([category, types]) => ({ category, types }))
+    return [...groups.entries()].map(([category, panels]) => ({ category, panels }))
   }
 }
