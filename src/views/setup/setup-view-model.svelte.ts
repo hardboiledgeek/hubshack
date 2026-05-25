@@ -5,9 +5,9 @@ import Station from '@domain/station'
 import Bench from '@domain/bench'
 
 export default class SetupViewModel {
-  callsign = $state('x')
-  operator = $state('x')
-  station = $state('x')
+  callsign = $state('')
+  operator = $state('')
+  station = $state('')
   #submitting = $state(false)
   #appState = fetchAppState()
 

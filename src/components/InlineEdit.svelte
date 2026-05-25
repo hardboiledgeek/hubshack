@@ -11,6 +11,8 @@
     class?: string
   } = $props()
 
+  // Component is mounted fresh when editing begins; value is the initial draft, not a live prop.
+  // svelte-ignore state_referenced_locally
   let draft = $state(value)
   let committed = false
 
