@@ -20,9 +20,14 @@ function available(): Panel[] {
   return [...panels.values()]
 }
 
+function fetch(id: string): Panel | null {
+  return panels.get(id) ?? null
+}
+
 const PanelRegistry = {
   load,
-  available
+  available,
+  fetch
 }
 
 export default PanelRegistry

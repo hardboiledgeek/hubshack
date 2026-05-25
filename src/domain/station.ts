@@ -1,6 +1,7 @@
 import { hubshackDB } from '@domain/database'
 import Entity from '@domain/entity'
 import User from '@domain/user'
+import Bench from '@domain/bench'
 import type { Unsubscribe } from '@domain/types'
 import type { SubscriptionCallback } from '@domain/entity-observer'
 
@@ -33,6 +34,15 @@ export default class Station extends Entity {
 
   set activeBenchId(value: string | null) {
     this.#activeBenchId = value
+  }
+
+  async activeBench(): Promise<Bench | null> {
+    if (this.#activeBenchId === null) return null
+    return Bench.fetch(this.#activeBenchId)
+  }
+
+  setActiveBench(bench: Bench | null): void {
+    this.#activeBenchId = bench === null ? null : bench.id
   }
 
   async user(): Promise<User> {

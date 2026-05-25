@@ -1,5 +1,5 @@
 <script lang="ts">
-  import LibraryPaneViewModel from './library-pane-view-model.svelte'
+  import LibraryPaneViewModel, { registerViewModel } from './library-pane-view-model.svelte'
   import LibraryCategory from './LibraryCategory.svelte'
   import SidePane from '@components/SidePane.svelte'
   import SidePaneHeader from '@components/SidePaneHeader.svelte'
@@ -7,6 +7,7 @@
   let { class: className = '' }: { class?: string } = $props()
 
   const viewModel = new LibraryPaneViewModel()
+  registerViewModel(viewModel)
 </script>
 
 <SidePane class="overflow-hidden min-h-0 {className}">

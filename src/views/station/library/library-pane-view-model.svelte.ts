@@ -1,8 +1,22 @@
-import type { Component } from 'svelte'
+import { getContext, setContext, type Component } from 'svelte'
 import { SvelteSet } from 'svelte/reactivity'
+import { fetchAppState } from '@app/app-state.svelte'
+import BenchPanel from '@domain/bench-panel'
 import PanelRegistry from '@panels/panel-registry'
 import type Panel from '@panels/panel'
 import DefaultIcon from '@components/icons/DefaultIcon.svelte'
+
+const ViewModelSymbol = Symbol('LibraryPaneViewModel')
+
+export function registerViewModel(viewModel: LibraryPaneViewModel): void {
+  setContext(ViewModelSymbol, viewModel)
+}
+
+export function fetchViewModel(): LibraryPaneViewModel {
+  const viewModel = getContext<LibraryPaneViewModel | undefined>(ViewModelSymbol)
+  if (!viewModel) throw new Error('LibraryPaneViewModel context not set')
+  return viewModel
+}
 
 export type LibraryPanel = {
   id: string
@@ -17,8 +31,10 @@ export type PanelCategory = {
 }
 
 export default class LibraryPaneViewModel {
+  #appState = fetchAppState()
   #expanded = new SvelteSet<string>()
   categories = $derived(this.#buildCategories())
+  canAddToBench = $derived(this.#appState.currentStation?.activeBenchId !== null && this.#appState.currentStation?.activeBenchId !== undefined)
 
   isCategoryExpanded(name: string): boolean {
     return this.#expanded.has(name)
@@ -27,6 +43,14 @@ export default class LibraryPaneViewModel {
   toggleCategory(name: string): void {
     if (this.#expanded.has(name)) this.#expanded.delete(name)
     else this.#expanded.add(name)
+  }
+
+  async addToBench(panelId: string): Promise<void> {
+    const station = this.#appState.currentStation
+    if (!station) return
+    const bench = await station.activeBench()
+    if (!bench) return
+    await BenchPanel.create(bench, panelId)
   }
 
   #buildCategories(): PanelCategory[] {

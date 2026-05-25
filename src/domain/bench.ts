@@ -1,6 +1,7 @@
 import { hubshackDB } from '@domain/database'
 import Entity from '@domain/entity'
 import Station from '@domain/station'
+import BenchPanel from '@domain/bench-panel'
 import type { Unsubscribe } from '@domain/types'
 import type { SubscriptionCallback } from '@domain/entity-observer'
 
@@ -29,6 +30,10 @@ export default class Bench extends Entity {
     const station = await Station.fetch(this.#stationId)
     if (!station) throw new Error(`Bench ${this.id} references missing station ${this.#stationId}`)
     return station
+  }
+
+  async panels(): Promise<BenchPanel[]> {
+    return BenchPanel.fetchForBench(this)
   }
 
   static async create(station: Station, name: string): Promise<Bench> {
