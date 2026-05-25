@@ -1,66 +1,63 @@
 import type { Component } from 'svelte'
-import { ulid } from 'ulid'
+import { SvelteSet } from 'svelte/reactivity'
 import PanelRegistry from '@panels/panel-registry'
+import type Panel from '@panels/panel'
 import DefaultIcon from '@components/icons/DefaultIcon.svelte'
 
 export type LibraryPanel = {
   id: string
-  panelId: string
   name: string
   category: string
   icon: Component
 }
 
 export type PanelCategory = {
-  category: string
+  name: string
   panels: LibraryPanel[]
 }
 
-function makeRows(): LibraryPanel[] {
-  const rows: LibraryPanel[] = []
-  for (const panel of PanelRegistry.available()) {
-    for (const category of panel.categories) {
-      rows.push({
-        id: ulid(),
-        panelId: panel.id,
+export default class LibraryPaneViewModel {
+  #expanded = new SvelteSet<string>()
+  categories = $derived(this.#buildCategories())
+
+  isCategoryExpanded(name: string): boolean {
+    return this.#expanded.has(name)
+  }
+
+  toggleCategory(name: string): void {
+    if (this.#expanded.has(name)) this.#expanded.delete(name)
+    else this.#expanded.add(name)
+  }
+
+  #buildCategories(): PanelCategory[] {
+    const categories = new Map<string, LibraryPanel[]>()
+
+    for (const panel of PanelRegistry.available()) {
+      for (const category of panel.categories) {
+        const libraryPanel = makeLibraryPanel(panel, category)
+        addLibraryPanel(libraryPanel)
+      }
+    }
+
+    return toPanelCategories()
+
+    function makeLibraryPanel(panel: Panel, category: string): LibraryPanel {
+      return {
+        id: panel.id,
         name: panel.name,
         category,
         icon: panel.icon ?? DefaultIcon
-      })
+      }
     }
-  }
-  return rows
-}
 
-export default class LibraryPaneViewModel {
-  #collapsed = $state(false)
-  rows = $state<LibraryPanel[]>(makeRows())
-
-  get collapsed(): boolean {
-    return this.#collapsed
-  }
-
-  toggle(): void {
-    this.#collapsed = !this.#collapsed
-  }
-
-  setRows(items: LibraryPanel[]): void {
-    this.rows = items
-  }
-
-  restore(): void {
-    this.rows = makeRows()
-  }
-
-  categories = $derived<PanelCategory[]>(this.#groupByCategory())
-
-  #groupByCategory(): PanelCategory[] {
-    const groups = new Map<string, LibraryPanel[]>()
-    for (const row of this.rows) {
-      const list = groups.get(row.category) ?? []
-      list.push(row)
-      groups.set(row.category, list)
+    function addLibraryPanel(libraryPanel: LibraryPanel): void {
+      const list = categories.get(libraryPanel.category) ?? []
+      list.push(libraryPanel)
+      categories.set(libraryPanel.category, list)
     }
-    return [...groups.entries()].map(([category, panels]) => ({ category, panels }))
+
+    function toPanelCategories(): PanelCategory[] {
+      return [...categories.entries()].map(([name, panels]) => ({ name, panels }))
+    }
   }
 }

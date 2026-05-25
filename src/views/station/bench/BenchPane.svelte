@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { dndzone } from 'svelte-dnd-action'
-  import BenchPaneViewModel, { type BenchInstance } from './bench-pane-view-model.svelte'
+  import BenchPaneViewModel from './bench-pane-view-model.svelte'
 
   type Props = {
     class?: string
@@ -9,22 +8,9 @@
   let { class: className = '' }: Props = $props()
 
   const viewModel = new BenchPaneViewModel()
-
-  function onConsider(e: CustomEvent<{ items: BenchInstance[] }>) {
-    viewModel.consider(e.detail.items)
-  }
-
-  function onFinalize(e: CustomEvent<{ items: BenchInstance[] }>) {
-    viewModel.finalize(e.detail.items)
-  }
 </script>
 
-<section
-  class="flex flex-wrap content-start gap-4 overflow-auto border border-white/10 p-6 {className}"
-  use:dndzone={{ items: viewModel.instances, type: 'panel', flipDurationMs: 150, dropTargetStyle: {} }}
-  onconsider={onConsider}
-  onfinalize={onFinalize}
->
+<section class="flex flex-wrap content-start gap-4 overflow-auto border border-white/10 p-6 {className}">
   {#each viewModel.instances as instance (instance.id)}
     {@const PanelComponent = instance.component}
     <article

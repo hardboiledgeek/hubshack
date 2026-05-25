@@ -1,5 +1,7 @@
 <script lang="ts">
   import DevicesPaneViewModel from './devices-pane-view-model.svelte'
+  import SidePane from '@components/SidePane.svelte'
+  import SidePaneHeader from '@components/SidePaneHeader.svelte'
   import PlusIcon from '@components/icons/PlusIcon.svelte'
 
   const viewModel = new DevicesPaneViewModel()
@@ -9,8 +11,8 @@
   }
 </script>
 
-<section class="flex flex-col gap-2 border border-white/10 p-4">
-  <h2 class="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-500/70">Devices</h2>
+<SidePane>
+  <SidePaneHeader>Devices</SidePaneHeader>
 
   {#if viewModel.devices.length === 0}
     <p class="font-sans text-sm text-neutral-400">No devices yet.</p>
@@ -34,4 +36,4 @@
     <PlusIcon class="h-3 w-3" />
     Add device
   </button>
-</section>
+</SidePane>

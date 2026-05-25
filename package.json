@@ -30,7 +30,6 @@
   },
   "dependencies": {
     "dexie": "^4.4.2",
-    "svelte-dnd-action": "^0.9.69",
     "ulid": "^3.0.2"
   }
 }
