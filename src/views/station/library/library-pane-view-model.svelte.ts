@@ -1,10 +1,13 @@
 import type { Component } from 'svelte'
+import { ulid } from 'ulid'
 import PanelRegistry from '@panels/panel-registry'
 import DefaultIcon from '@components/icons/DefaultIcon.svelte'
 
 export type LibraryPanel = {
   id: string
+  panelId: string
   name: string
+  category: string
   icon: Component
 }
 
@@ -13,8 +16,25 @@ export type PanelCategory = {
   panels: LibraryPanel[]
 }
 
+function makeRows(): LibraryPanel[] {
+  const rows: LibraryPanel[] = []
+  for (const panel of PanelRegistry.available()) {
+    for (const category of panel.categories) {
+      rows.push({
+        id: ulid(),
+        panelId: panel.id,
+        name: panel.name,
+        category,
+        icon: panel.icon ?? DefaultIcon
+      })
+    }
+  }
+  return rows
+}
+
 export default class LibraryPaneViewModel {
   #collapsed = $state(false)
+  rows = $state<LibraryPanel[]>(makeRows())
 
   get collapsed(): boolean {
     return this.#collapsed
@@ -24,21 +44,22 @@ export default class LibraryPaneViewModel {
     this.#collapsed = !this.#collapsed
   }
 
+  setRows(items: LibraryPanel[]): void {
+    this.rows = items
+  }
+
+  restore(): void {
+    this.rows = makeRows()
+  }
+
   categories = $derived<PanelCategory[]>(this.#groupByCategory())
 
   #groupByCategory(): PanelCategory[] {
     const groups = new Map<string, LibraryPanel[]>()
-    for (const panel of PanelRegistry.available()) {
-      const row: LibraryPanel = {
-        id: panel.id,
-        name: panel.name,
-        icon: panel.icon ?? DefaultIcon
-      }
-      for (const category of panel.categories) {
-        const list = groups.get(category) ?? []
-        list.push(row)
-        groups.set(category, list)
-      }
+    for (const row of this.rows) {
+      const list = groups.get(row.category) ?? []
+      list.push(row)
+      groups.set(row.category, list)
     }
     return [...groups.entries()].map(([category, panels]) => ({ category, panels }))
   }

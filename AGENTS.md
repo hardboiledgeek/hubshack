@@ -38,8 +38,10 @@ PanelTypes and Adapters are **code, not data** — registered at app start, look
 The architecture is fully described below, but the code hasn't all caught up. As of now:
 
 - **Wired to the domain:** `User`, `Station`, `Bench`. `HeaderPane` and `TabsPane` consume them through `AppState` and `watch*`.
-- **In-VM mocks (no domain entity yet):** `DevicesPane`, `LibraryPane` (PanelTypes), `BenchPane` (Panels). Each VM holds a hard-coded array. Don't assume these are wired — wiring them is the next round of work.
-- **Not built:** Devices entity, PanelTypes registry, Panel entity, pub/sub bus, drag-and-drop. Test suite is empty except for a placeholder.
+- **Code-not-data, fully wired:** `Panel` (the metadata type) and `PanelRegistry` (the in-memory map, loaded once at app startup from `App.svelte`). Three real Panels ship: `callsign`, `clock`, `on-air`. `LibraryPane` and `BenchPane` both read from the registry.
+- **In-VM mocks (no domain entity yet):** `DevicesPane`. `BenchPane` panel instances are in-memory `$state` (lost on reload, shared across tabs because there's one VM).
+- **Drag and drop:** wired with `svelte-dnd-action`. Library → Bench works as a palette pattern (drops out, restores). Within-bench reorder works as a side effect. See [[reference-svelte-dnd-action]] memory and the **Drag and drop** section below.
+- **Not built:** `PanelInstance` entity (the persisted thing on a Bench), Devices entity, pub/sub bus. Test suite is empty except for a placeholder.
 
 ## Persistent Domains
 
@@ -134,19 +136,53 @@ The Station view is the operator's working surface. Its chrome is fixed; the ben
 
 ## Panels and Adapters
 
+> Nomenclature update: the old PanelType / Panel split is now **Panel** (the code-defined kind, with metadata + component + VM) and **PanelInstance** (the persisted placement on a Bench). The Library is the registry of Panels. Documentation below still uses the historic "PanelType / Panel" wording in a few places — read "PanelType" as "Panel" and "Panel" (as instance) as "PanelInstance" until the prose is fully migrated.
+
 Three players meet at the bus:
 
-- **PanelType** — code-defined kind of panel. Declares topics it subscribes/publishes, config schema, default layout hints.
-- **Panel** — persisted _instance_ of a PanelType on a Bench. Holds the user's config for this placement.
+- **Panel** — code-defined kind of panel. Declares topics it subscribes/publishes (eventually), config schema (eventually), categories, required capabilities, the Svelte component to render, and an optional library icon. Lives in `src/panels/<name>/` as three files: `panel.svelte` (component), `<name>-panel-view-model.svelte.ts` (VM), `<name>-panel.ts` (the `Panel` metadata object, registered with `PanelRegistry`).
+- **PanelInstance** — persisted _instance_ of a Panel on a Bench. Will hold the user's config for this placement. Not built yet.
 - **Adapter** — code that talks to a Device and publishes/subscribes topics. Each Device declares which Adapters it can host.
+
+### The Library / PanelRegistry
+
+`src/panels/panel-registry.ts` is a plain JavaScript namespace (object with module-level state) — not a class, not a domain entity, not in Dexie. Exposes `load()` and `available()`. `load()` is called once from `App.svelte` before `registerAppState`; it explicitly registers each Panel by importing its module and calling the internal `register(panel)`. The hand-maintained list of registered Panels lives in `load()` — adding a panel is a folder + an import line + a `register(...)` call. No auto-discovery (intentional — see [[panel-registry-pattern]] discussion).
+
+The `Panel` shape (in `src/panels/panel.ts`) is a `type` (not a class — see [[feedback-types-vs-interfaces]] memory). Convert to a class only if/when per-panel behavior shows up; the property surface stays the same so the migration is mechanical.
 
 **Compatibility flows through Adapters, not Devices:**
 
-- A PanelType lists adapter _capabilities_ (topics) it requires — not "compatible devices."
-- The Panel Library shows a PanelType iff every capability it needs is satisfied by some installed Device.
+- A Panel lists adapter _capabilities_ (topics) it requires — not "compatible devices."
+- The Panel Library shows a Panel iff every capability it needs is satisfied by some installed Device. (Capability filtering is not yet implemented; `PanelRegistry.available()` returns all.)
 - Adding a Device unlocks the Panels its adapters provide; removing it hides them.
 
-**Layout rule:** Panel owns what it _is_ (config). Bench owns where it _goes_ (per-instance layout). Same PanelType on two Benches can be different sizes; the same Panel instance is never on two Benches.
+**Layout rule:** Panel owns what it _is_ (config). Bench owns where it _goes_ (per-instance layout). Same Panel on two Benches can be different sizes; the same PanelInstance is never on two Benches.
+
+### Icons
+
+Icons live in `src/components/icons/` as `.svelte` components using `stroke="currentColor"` so they inherit Tailwind text color. App-chrome icons (`ChevronIcon`, `GearIcon`, `PlusIcon`) sit alongside domain icons (`DefaultIcon`, `ClockIcon`, `OnAirIcon`, `RadioIcon`, `RotatorIcon`). `DefaultIcon` is the shared fallback for both Panels (in the Library) and Devices. Each Panel/Device may supply its own icon; if absent, the consuming VM falls back to `DefaultIcon`.
+
+### Dynamic component rendering
+
+Render a Svelte component held in a variable by capitalizing the binding in markup:
+
+```svelte
+{@const PanelComponent = panel.component}
+<PanelComponent />
+```
+
+No `<svelte:component>` needed in Svelte 5. The component reference travels from `Panel.component` through view-model projection rows into the rendering component as a value.
+
+## Drag and drop
+
+Library uses `svelte-dnd-action` (already installed). Two zones share `type: 'panel'`:
+
+- **Library (source-only palette):** `dropFromOthersDisabled: true`. `consider` assigns `e.detail.items` back to the state array (required — skipping it crashes the library in an infinite `requestAnimationFrame` loop). `finalize` rebuilds the source list from the registry so dragged items snap back regardless of where they dropped.
+- **Bench (target):** `consider` is passive (stores the items array as dnd-action provides it). `finalize` filters out shadow items (marked with `isDndShadowItem: true`) and resolves panels for new arrivals (items without a `component` field), minting a fresh ULID per new instance. Existing instances pass through unchanged so within-bench reordering keeps their ids.
+
+The default yellow drop-target outline is disabled via `dropTargetStyle: {}` on both zones. The library uses `transformDraggedElement` to replace the dragged clone's contents with just the icon at h-10 w-10 — no name, no row chrome.
+
+See [[reference-svelte-dnd-action]] memory for the gotchas that bit us during the first integration. Future work (per-bench keying, drag-out-to-remove, layout/span hints) waits on `PanelInstance` persistence.
 
 ## Views, Panes, View Models
 
