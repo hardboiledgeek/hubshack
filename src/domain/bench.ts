@@ -11,11 +11,13 @@ export type BenchesCallback = SubscriptionCallback<Bench[]>
 export default class Bench extends Entity {
   #stationId: string
   #name: string
+  #active: boolean
 
-  private constructor(id: string, stationId: string, name: string) {
+  private constructor(id: string, stationId: string, name: string, active: boolean) {
     super(id)
     this.#stationId = stationId
     this.#name = name
+    this.#active = active
   }
 
   get name(): string {
@@ -24,6 +26,10 @@ export default class Bench extends Entity {
 
   set name(value: string) {
     this.#name = value
+  }
+
+  get active(): boolean {
+    return this.#active
   }
 
   async station(): Promise<Station> {
@@ -36,20 +42,34 @@ export default class Bench extends Entity {
     return BenchPanel.fetchForBench(this)
   }
 
+  async activate(): Promise<void> {
+    await hubshackDB.transaction('rw', hubshackDB.benches, async () => {
+      await hubshackDB.benches.where('stationId').equals(this.#stationId).modify({ active: false })
+      await hubshackDB.benches.update(this.id, { active: true })
+    })
+    this.#active = true
+  }
+
   static async create(station: Station, name: string): Promise<Bench> {
-    const bench = new Bench(Entity.generateId(), station.id, name)
+    const bench = new Bench(Entity.generateId(), station.id, name, false)
     await bench.save()
     return bench
   }
 
   static async fetch(id: string): Promise<Bench | null> {
     const row = await hubshackDB.benches.get(id)
-    return row ? new Bench(row.id, row.stationId, row.name) : null
+    return row ? new Bench(row.id, row.stationId, row.name, row.active) : null
   }
 
   static async fetchForStation(station: Station): Promise<Bench[]> {
     const rows = await hubshackDB.benches.where('stationId').equals(station.id).sortBy('id')
-    return rows.map(row => new Bench(row.id, row.stationId, row.name))
+    return rows.map(row => new Bench(row.id, row.stationId, row.name, row.active))
+  }
+
+  static async fetchActiveForStation(station: Station): Promise<Bench | null> {
+    const rows = await hubshackDB.benches.where('stationId').equals(station.id).toArray()
+    const active = rows.find(row => row.active)
+    return active ? new Bench(active.id, active.stationId, active.name, active.active) : null
   }
 
   static watch(id: string, callback: BenchCallback): Unsubscribe {
@@ -60,11 +80,16 @@ export default class Bench extends Entity {
     return this.observe<Bench[]>(`by-station:${station.id}`, () => Bench.fetchForStation(station)).subscribe(callback)
   }
 
+  static watchActiveForStation(station: Station, callback: BenchCallback): Unsubscribe {
+    return this.observe<Bench | null>(`active-by-station:${station.id}`, () => Bench.fetchActiveForStation(station)).subscribe(callback)
+  }
+
   async save(): Promise<void> {
     await hubshackDB.benches.put({
       id: this.id,
       stationId: this.#stationId,
-      name: this.#name
+      name: this.#name,
+      active: this.#active
     })
   }
 }

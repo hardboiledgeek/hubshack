@@ -11,13 +11,11 @@ export type StationsCallback = SubscriptionCallback<Station[]>
 export default class Station extends Entity {
   #userId: string
   #stationName: string
-  #activeBenchId: string | null
 
-  private constructor(id: string, userId: string, stationName: string, activeBenchId: string | null) {
+  private constructor(id: string, userId: string, stationName: string) {
     super(id)
     this.#userId = userId
     this.#stationName = stationName
-    this.#activeBenchId = activeBenchId
   }
 
   get stationName(): string {
@@ -28,43 +26,30 @@ export default class Station extends Entity {
     this.#stationName = value
   }
 
-  get activeBenchId(): string | null {
-    return this.#activeBenchId
-  }
-
-  set activeBenchId(value: string | null) {
-    this.#activeBenchId = value
-  }
-
-  async activeBench(): Promise<Bench | null> {
-    if (this.#activeBenchId === null) return null
-    return Bench.fetch(this.#activeBenchId)
-  }
-
-  setActiveBench(bench: Bench | null): void {
-    this.#activeBenchId = bench === null ? null : bench.id
-  }
-
   async user(): Promise<User> {
     const user = await User.fetch(this.#userId)
     if (!user) throw new Error(`Station ${this.id} references missing user ${this.#userId}`)
     return user
   }
 
+  async activeBench(): Promise<Bench | null> {
+    return Bench.fetchActiveForStation(this)
+  }
+
   static async create(user: User, stationName: string): Promise<Station> {
-    const station = new Station(Entity.generateId(), user.id, stationName, null)
+    const station = new Station(Entity.generateId(), user.id, stationName)
     await station.save()
     return station
   }
 
   static async fetch(id: string): Promise<Station | null> {
     const row = await hubshackDB.stations.get(id)
-    return row ? new Station(row.id, row.userId, row.stationName, row.activeBenchId) : null
+    return row ? new Station(row.id, row.userId, row.stationName) : null
   }
 
   static async fetchForUser(user: User): Promise<Station[]> {
     const rows = await hubshackDB.stations.where('userId').equals(user.id).toArray()
-    return rows.map(row => new Station(row.id, row.userId, row.stationName, row.activeBenchId))
+    return rows.map(row => new Station(row.id, row.userId, row.stationName))
   }
 
   static watch(id: string, callback: StationCallback): Unsubscribe {
@@ -79,8 +64,7 @@ export default class Station extends Entity {
     await hubshackDB.stations.put({
       id: this.id,
       userId: this.#userId,
-      stationName: this.stationName,
-      activeBenchId: this.#activeBenchId
+      stationName: this.stationName
     })
   }
 }

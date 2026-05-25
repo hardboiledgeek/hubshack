@@ -30,7 +30,7 @@ export default class TabsPaneViewModel {
     this.#benches.map(bench => ({
       id: bench.id,
       name: bench.name,
-      active: bench.id === (this.#appState.currentStation?.activeBenchId ?? null),
+      active: bench.active,
       editing: bench.id === this.#editingBenchId
     }))
   )
@@ -43,10 +43,9 @@ export default class TabsPaneViewModel {
   }
 
   async setActiveBench(id: string): Promise<void> {
-    const station = this.#appState.currentStation
-    if (!station || station.activeBenchId === id) return
-    station.activeBenchId = id
-    await station.save()
+    const bench = this.#benches.find(b => b.id === id)
+    if (!bench || bench.active) return
+    await bench.activate()
   }
 
   beginRename(id: string): void {
@@ -71,8 +70,7 @@ export default class TabsPaneViewModel {
     if (!station) return
     const name = `Bench ${this.#benches.length + 1}`
     const bench = await Bench.create(station, name)
-    station.activeBenchId = bench.id
-    await station.save()
+    await bench.activate()
     this.#editingBenchId = bench.id
   }
 }

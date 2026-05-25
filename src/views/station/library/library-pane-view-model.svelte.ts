@@ -1,6 +1,7 @@
 import { getContext, setContext, type Component } from 'svelte'
 import { SvelteSet } from 'svelte/reactivity'
 import { fetchAppState } from '@app/app-state.svelte'
+import Bench from '@domain/bench'
 import BenchPanel from '@domain/bench-panel'
 import PanelRegistry from '@panels/panel-registry'
 import type Panel from '@panels/panel'
@@ -33,8 +34,20 @@ export type PanelCategory = {
 export default class LibraryPaneViewModel {
   #appState = fetchAppState()
   #expanded = new SvelteSet<string>()
+  #activeBench = $state<Bench | null>(null)
   categories = $derived(this.#buildCategories())
-  canAddToBench = $derived(this.#appState.currentStation?.activeBenchId !== null && this.#appState.currentStation?.activeBenchId !== undefined)
+  canAddToBench = $derived(this.#activeBench !== null)
+
+  constructor() {
+    $effect(() => {
+      const station = this.#appState.currentStation
+      if (!station) {
+        this.#activeBench = null
+        return
+      }
+      return Bench.watchActiveForStation(station, bench => (this.#activeBench = bench))
+    })
+  }
 
   isCategoryExpanded(name: string): boolean {
     return this.#expanded.has(name)
@@ -46,9 +59,7 @@ export default class LibraryPaneViewModel {
   }
 
   async addToBench(panelId: string): Promise<void> {
-    const station = this.#appState.currentStation
-    if (!station) return
-    const bench = await station.activeBench()
+    const bench = this.#activeBench
     if (!bench) return
     await BenchPanel.create(bench, panelId)
   }

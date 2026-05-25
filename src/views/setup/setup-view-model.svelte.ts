@@ -28,8 +28,7 @@ export default class SetupViewModel {
 
       const station = await Station.create(user, this.station.trim())
       const bench = await Bench.create(station, 'Main')
-      station.activeBenchId = bench.id
-      await station.save()
+      await bench.activate()
       this.#appState.currentStation = station
 
       appRouter.routeToStation()

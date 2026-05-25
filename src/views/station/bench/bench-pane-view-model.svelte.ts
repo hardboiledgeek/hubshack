@@ -13,6 +13,7 @@ export type BenchInstance = {
 
 export default class BenchPaneViewModel {
   #appState = fetchAppState()
+  #activeBench = $state<Bench | null>(null)
   #benchPanels = $state<BenchPanel[]>([])
 
   instances = $derived<BenchInstance[]>(
@@ -30,21 +31,21 @@ export default class BenchPaneViewModel {
 
   constructor() {
     $effect(() => {
-      const activeBenchId = this.#appState.currentStation?.activeBenchId ?? null
-      if (activeBenchId === null) {
+      const station = this.#appState.currentStation
+      if (!station) {
+        this.#activeBench = null
+        return
+      }
+      return Bench.watchActiveForStation(station, bench => (this.#activeBench = bench))
+    })
+
+    $effect(() => {
+      const bench = this.#activeBench
+      if (!bench) {
         this.#benchPanels = []
         return
       }
-      let unsubscribe: (() => void) | null = null
-      let cancelled = false
-      Bench.fetch(activeBenchId).then(bench => {
-        if (cancelled || !bench) return
-        unsubscribe = BenchPanel.watchForBench(bench, panels => (this.#benchPanels = panels))
-      })
-      return () => {
-        cancelled = true
-        unsubscribe?.()
-      }
+      return BenchPanel.watchForBench(bench, panels => (this.#benchPanels = panels))
     })
   }
 }

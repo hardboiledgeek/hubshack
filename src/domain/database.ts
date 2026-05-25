@@ -10,13 +10,13 @@ export interface StationRow {
   id: string
   userId: string
   stationName: string
-  activeBenchId: string | null
 }
 
 export interface BenchRow {
   id: string
   stationId: string
   name: string
+  active: boolean
 }
 
 export interface BenchPanelRow {
