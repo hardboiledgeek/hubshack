@@ -53,6 +53,10 @@
     </button>
   {/if}
 
+  <!-- onmousedown, not onclick: TabMenu's dismisser listens on mousedown, so a
+       click outside dismisses on press. If this opener used onclick, the click
+       would bubble to document before onclick fires, the dismisser would see
+       "outside the not-yet-mounted popover," and the menu would close on open. -->
   <button
     type="button"
     aria-label="Bench menu"

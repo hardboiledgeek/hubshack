@@ -42,6 +42,13 @@ export default class Bench extends Entity {
     return BenchPanel.fetchForBench(this)
   }
 
+  // Active-selection pattern: flag on the child, not FK on the parent.
+  // An earlier `Station.activeBenchId` design forced async resolution that
+  // couldn't be read from a `$derived`, pushing `$effect` plumbing into every
+  // consuming VM. `Bench.active` is sync and reactive; the invariant
+  // ("exactly one active per station") lives here. The brute-force write —
+  // clear all siblings, then set this one — is intentional and self-heals
+  // if the DB ever ends up with zero or multiple active rows.
   async activate(): Promise<void> {
     await hubshackDB.transaction('rw', hubshackDB.benches, async () => {
       await hubshackDB.benches.where('stationId').equals(this.#stationId).modify({ active: false })

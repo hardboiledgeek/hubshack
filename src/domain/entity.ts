@@ -3,9 +3,16 @@ import EntityObserver, { type Query } from '@domain/entity-observer'
 
 type Bucket = Map<string, EntityObserver<unknown>>
 
+// Reactivity lives ABOVE the domain (in VMs, in AppState), not on it.
+// `#`-private fields are invisible to Svelte's `$state` proxies — don't try to
+// make a single entity instance reactive in place. `fetch` returns a fresh
+// instance each call; consumers subscribe via `watch*`.
 export default abstract class Entity {
   readonly #id: string
 
+  // Subclass partitioning trick: in a static method, `this` is the subclass
+  // constructor — so `#observers.get(this)` returns the bucket for `Bench`
+  // when called from `Bench.watch`, without each subclass declaring storage.
   static #observers = new Map<typeof Entity, Bucket>()
 
   protected constructor(id: string) {

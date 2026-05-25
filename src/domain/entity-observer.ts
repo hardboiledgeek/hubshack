@@ -5,8 +5,11 @@ export type Query<T> = () => T | Promise<T>
 export type SubscriptionCallback<T> = (value: T) => void
 export type OnEmptyCallback = () => void
 
-// Queries must never resolve to `undefined` — `undefined` is the "no value yet" sentinel
-// for replay-on-subscribe. Use `null` to mean "entity missing/deleted."
+// `#lastValue: T | undefined` is the one place `undefined` is load-bearing in the
+// domain layer. It's the "no emission yet" sentinel that gates replay-on-subscribe
+// (see `subscribe` below). Queries must therefore never resolve to `undefined` —
+// singleton `fetch*` methods normalize Dexie's row-not-found to `null`. If a
+// `watch*` ever passes `undefined` through to `liveQuery`, replay silently breaks.
 export default class EntityObserver<T> {
   #onEmpty: OnEmptyCallback
   #subscribers = new Set<SubscriptionCallback<T>>()
