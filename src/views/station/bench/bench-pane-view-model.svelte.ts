@@ -18,7 +18,7 @@ export default class BenchPaneViewModel {
 
   instances = $derived<BenchInstance[]>(
     this.#benchPanels.flatMap(benchPanel => {
-      const panel = PanelRegistry.fetch(benchPanel.panelId)
+      const panel = PanelRegistry.byId(benchPanel.panelId)
       if (!panel) return []
       return [{
         id: benchPanel.id,

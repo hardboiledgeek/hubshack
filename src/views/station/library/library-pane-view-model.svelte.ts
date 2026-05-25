@@ -4,7 +4,6 @@ import { fetchAppState } from '@app/app-state.svelte'
 import Bench from '@domain/bench'
 import BenchPanel from '@domain/bench-panel'
 import PanelRegistry from '@panels/panel-registry'
-import type Panel from '@panels/panel'
 import DefaultIcon from '@components/icons/DefaultIcon.svelte'
 
 const ViewModelSymbol = Symbol('LibraryPaneViewModel')
@@ -65,34 +64,14 @@ export default class LibraryPaneViewModel {
   }
 
   #buildCategories(): PanelCategory[] {
-    const categories = new Map<string, LibraryPanel[]>()
-
-    for (const panel of PanelRegistry.available()) {
-      for (const category of panel.categories) {
-        const libraryPanel = makeLibraryPanel(panel, category)
-        addLibraryPanel(libraryPanel)
-      }
-    }
-
-    return toPanelCategories()
-
-    function makeLibraryPanel(panel: Panel, category: string): LibraryPanel {
-      return {
+    return PanelRegistry.categories().map(name => ({
+      name,
+      panels: PanelRegistry.forCategory(name).map(panel => ({
         id: panel.id,
         name: panel.name,
-        category,
+        category: name,
         icon: panel.icon ?? DefaultIcon
-      }
-    }
-
-    function addLibraryPanel(libraryPanel: LibraryPanel): void {
-      const list = categories.get(libraryPanel.category) ?? []
-      list.push(libraryPanel)
-      categories.set(libraryPanel.category, list)
-    }
-
-    function toPanelCategories(): PanelCategory[] {
-      return [...categories.entries()].map(([name, panels]) => ({ name, panels }))
-    }
+      }))
+    }))
   }
 }

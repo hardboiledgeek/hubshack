@@ -16,18 +16,32 @@ function register(panel: Panel): void {
   panels.set(panel.id, panel)
 }
 
-function available(): Panel[] {
+function all(): Panel[] {
   return [...panels.values()]
 }
 
-function fetch(id: string): Panel | null {
+function byId(id: string): Panel | null {
   return panels.get(id) ?? null
+}
+
+function categories(): string[] {
+  const names = new Set<string>()
+  for (const panel of panels.values()) {
+    for (const category of panel.categories) names.add(category)
+  }
+  return [...names]
+}
+
+function forCategory(name: string): Panel[] {
+  return [...panels.values()].filter(panel => panel.categories.includes(name))
 }
 
 const PanelRegistry = {
   load,
-  available,
-  fetch
+  all,
+  byId,
+  categories,
+  forCategory
 }
 
 export default PanelRegistry
