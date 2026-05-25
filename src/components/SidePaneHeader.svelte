@@ -1,7 +1,18 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import Caption from './Caption.svelte'
 
-  let { children }: { children: Snippet } = $props()
+  type Props = {
+    children: Snippet
+    actions?: Snippet
+  }
+
+  let { children, actions }: Props = $props()
 </script>
 
-<h2 class="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-500/70">{@render children()}</h2>
+<div class="flex items-center justify-between">
+  <Caption tone="amber">{@render children()}</Caption>
+  {#if actions}
+    <div class="flex items-center">{@render actions()}</div>
+  {/if}
+</div>

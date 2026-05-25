@@ -4,4 +4,4 @@
   const viewModel = new CallsignPanelViewModel()
 </script>
 
-<div class="text-2xl font-mono tracking-wider">{viewModel.callsign}</div>
+<div class="font-digits text-5xl tracking-[0.2em] text-amber-300">{viewModel.callsign}</div>

@@ -7,6 +7,7 @@ export type BenchTab = {
   name: string
   active: boolean
   editing: boolean
+  menuOpen: boolean
 }
 
 const ViewModelSymbol = Symbol('TabsPaneViewModel')
@@ -25,13 +26,15 @@ export default class TabsPaneViewModel {
   #appState = fetchAppState()
   #benches = $state<Bench[]>([])
   #editingBenchId = $state<string | null>(null)
+  #openMenuBenchId = $state<string | null>(null)
 
   tabs = $derived<BenchTab[]>(
     this.#benches.map(bench => ({
       id: bench.id,
       name: bench.name,
       active: bench.active,
-      editing: bench.id === this.#editingBenchId
+      editing: bench.id === this.#editingBenchId,
+      menuOpen: bench.id === this.#openMenuBenchId
     }))
   )
 
@@ -63,6 +66,14 @@ export default class TabsPaneViewModel {
 
   cancelRename(): void {
     this.#editingBenchId = null
+  }
+
+  toggleMenu(id: string): void {
+    this.#openMenuBenchId = this.#openMenuBenchId === id ? null : id
+  }
+
+  closeMenu(): void {
+    this.#openMenuBenchId = null
   }
 
   async addBench(): Promise<void> {

@@ -2,7 +2,7 @@ import { appRouter } from '@app/app-router.svelte'
 import { fetchAppState } from '@app/app-state.svelte'
 import { TAGLINES } from './taglines'
 
-const MINIMUM_DISPLAY_MS = 3000
+const MINIMUM_DISPLAY_MS = 3 * 1000
 
 export default class SplashViewModel {
   #timeRemaining = $state(true)

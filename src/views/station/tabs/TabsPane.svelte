@@ -2,6 +2,7 @@
   import TabsPaneViewModel, { registerViewModel } from './tabs-pane-view-model.svelte'
   import Tab from './Tab.svelte'
   import PlusIcon from '@components/icons/PlusIcon.svelte'
+  import IconButton from '@components/IconButton.svelte'
 
   let { class: className = '' }: { class?: string } = $props()
 
@@ -17,12 +18,5 @@
   {#each viewModel.tabs as tab (tab.id)}
     <Tab {tab} />
   {/each}
-  <button
-    type="button"
-    aria-label="New bench"
-    onclick={onAddBench}
-    class="ml-1 flex cursor-pointer items-center justify-center rounded-xs p-1.5 text-amber-500/70 hover:bg-amber-500/10 hover:text-amber-200"
-  >
-    <PlusIcon class="h-4 w-4" />
-  </button>
+  <IconButton icon={PlusIcon} label="New bench" onclick={onAddBench} class="ml-1" />
 </div>

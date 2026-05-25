@@ -14,11 +14,8 @@
   {#each viewModel.instances as instance (instance.id)}
     {@const PanelComponent = instance.component}
     <article
-      class="flex h-40 min-w-[14rem] flex-[1_1_14rem] flex-col rounded-xs border border-white/10 bg-black/30 p-4 shadow-md shadow-black/40 ring-1 ring-inset ring-black/40"
+      class="flex h-40 min-w-[14rem] flex-[1_1_14rem] flex-col rounded-xs border-2 border-t-white/15 border-l-white/15 border-b-black border-r-black bg-gradient-to-br from-white/5 to-black/40 p-4 shadow-md shadow-black/40"
     >
-      <header class="flex items-baseline justify-between">
-        <h3 class="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-500/70">{instance.name}</h3>
-      </header>
       <div class="flex flex-1 items-center justify-center">
         {#if PanelComponent}
           <PanelComponent />

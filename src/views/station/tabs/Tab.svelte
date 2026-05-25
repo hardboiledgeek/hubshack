@@ -8,8 +8,6 @@
 
   const viewModel = fetchViewModel()
 
-  let menuOpen = $state(false)
-
   function onActivate() {
     viewModel.setActiveBench(tab.id)
   }
@@ -22,32 +20,36 @@
     viewModel.cancelRename()
   }
 
-  function onOpenMenu(event: MouseEvent) {
+  function onToggleMenu(event: MouseEvent) {
     event.stopPropagation()
-    menuOpen = true
+    viewModel.toggleMenu(tab.id)
   }
 
   function onCloseMenu() {
-    menuOpen = false
+    viewModel.closeMenu()
   }
 
-  const borderColor = $derived(tab.active ? 'border-amber-400' : 'border-transparent')
-  const labelColor = $derived(tab.active ? 'text-amber-200' : 'text-amber-500/60 hover:text-amber-300')
+  const tabGlow = $derived(
+    tab.active ? 'bg-[radial-gradient(ellipse_at_center,_rgba(245,158,11,0.2),_transparent_60%)]' : ''
+  )
+  const labelColor = $derived(
+    tab.active ? 'text-amber-200 [text-shadow:0_0_6px_rgba(245,158,11,0.6)]' : 'text-amber-500/70 hover:text-amber-300'
+  )
 </script>
 
-<div role="tab" aria-selected={tab.active} class="relative flex items-center border-b-2 {borderColor}">
+<div role="tab" aria-selected={tab.active} class="relative flex items-center">
   {#if tab.editing}
     <InlineEdit
       value={tab.name}
       onCommit={onCommitRename}
       onCancel={onCancelRename}
-      class="border-none bg-transparent px-4 py-2.5 font-mono text-xs uppercase tracking-[0.2em] text-amber-200 outline-none"
+      class="border-none bg-transparent pl-4 pr-2 py-2.5 font-mono text-xs uppercase tracking-[0.3em] text-amber-200 outline-none {tabGlow}"
     />
   {:else}
     <button
       type="button"
       onclick={onActivate}
-      class="cursor-pointer px-4 py-2.5 font-mono text-xs uppercase tracking-[0.2em] {labelColor}"
+      class="cursor-pointer pl-4 pr-2 py-2.5 font-mono text-xs uppercase tracking-[0.3em] {tabGlow} {labelColor}"
     >
       {tab.name}
     </button>
@@ -60,13 +62,13 @@
   <button
     type="button"
     aria-label="Bench menu"
-    onmousedown={onOpenMenu}
-    class="mr-1 flex cursor-pointer items-center justify-center rounded-xs p-1 text-amber-500/70 hover:bg-amber-500/10 hover:text-amber-200"
+    onmousedown={onToggleMenu}
+    class="mr-1 flex cursor-pointer items-center justify-center rounded-xs py-1 pr-1 text-amber-500/70 hover:text-amber-300"
   >
     <ChevronIcon class="h-3 w-3" direction="down" />
   </button>
 
-  {#if menuOpen}
+  {#if tab.menuOpen}
     <TabMenu tabId={tab.id} onClose={onCloseMenu} class="left-0 top-full mt-1" />
   {/if}
 </div>

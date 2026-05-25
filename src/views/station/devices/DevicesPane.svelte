@@ -2,6 +2,7 @@
   import DevicesPaneViewModel from './devices-pane-view-model.svelte'
   import SidePane from '@components/SidePane.svelte'
   import SidePaneHeader from '@components/SidePaneHeader.svelte'
+  import IconButton from '@components/IconButton.svelte'
   import PlusIcon from '@components/icons/PlusIcon.svelte'
 
   const viewModel = new DevicesPaneViewModel()
@@ -12,28 +13,24 @@
 </script>
 
 <SidePane>
-  <SidePaneHeader>Devices</SidePaneHeader>
+  <SidePaneHeader>
+    Devices
+    {#snippet actions()}
+      <IconButton icon={PlusIcon} label="Add device" onclick={onAddDevice} />
+    {/snippet}
+  </SidePaneHeader>
 
   {#if viewModel.devices.length === 0}
-    <p class="font-sans text-sm text-neutral-400">No devices yet.</p>
+    <p class="font-sans text-sm text-stone-400">No devices yet.</p>
   {:else}
     <ul class="flex flex-col">
       {#each viewModel.devices as device (device.id)}
         {@const DeviceIcon = device.icon}
         <li class="flex items-center gap-2 rounded-xs px-2 py-1 hover:bg-white/5">
-          <DeviceIcon class="h-5 w-5 shrink-0 text-amber-500/70" />
-          <span class="font-sans text-base text-neutral-200">{device.name}</span>
+          <DeviceIcon class="h-5 w-5 shrink-0 text-amber-300 drop-shadow-[0_0_3px_rgba(245,158,11,0.5)]" />
+          <span class="font-sans text-base text-stone-200">{device.name}</span>
         </li>
       {/each}
     </ul>
   {/if}
-
-  <button
-    type="button"
-    onclick={onAddDevice}
-    class="mt-2 flex cursor-pointer items-center gap-2 self-start rounded-xs border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.3em] text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
-  >
-    <PlusIcon class="h-3 w-3" />
-    Add device
-  </button>
 </SidePane>

@@ -1,12 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@100..700');
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100..700');
 @import url('https://fonts.googleapis.com/css2?family=Rubik+Mono+One');
+@import url('https://fonts.googleapis.com/css2?family=Quantico:wght@400;700&display=swap');
 
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'IBM Plex Sans', sans-serif;
+  --font-sans: 'Quantico', sans-serif;
   --font-mono: 'Roboto Mono', monospace;
   --font-brand: 'Rubik Mono One', monospace;
   --font-digits: 'Rubik Mono One', monospace;

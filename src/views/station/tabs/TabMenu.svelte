@@ -50,7 +50,7 @@
     role="menuitem"
     type="button"
     onclick={onRename}
-    class="block w-full cursor-pointer px-3 py-1.5 text-left font-mono text-[10px] uppercase tracking-[0.2em] text-amber-200/80 hover:bg-amber-500/10 hover:text-amber-100"
+    class="block w-full cursor-pointer px-3 py-1.5 text-left font-mono text-[10px] uppercase tracking-[0.2em] text-amber-300/80 hover:bg-amber-500/10 hover:text-amber-200"
   >
     Rename
   </button>
