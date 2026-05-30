@@ -5,7 +5,7 @@
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
-    "types": ["vite/client", "svelte", "vitest/globals"],
+    "types": ["vite/client", "svelte", "vitest/globals", "w3c-web-serial"],
 
     "moduleResolution": "bundler",
     "moduleDetection": "force",
@@ -21,6 +21,7 @@
       "@domain/*": ["./src/domain/*"],
       "@views/*": ["./src/views/*"],
       "@panels/*": ["./src/panels/*"],
+      "@transport/*": ["./src/transport/*"],
       "@spec/*": ["./spec/*"]
     }
   },

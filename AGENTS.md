@@ -4,31 +4,31 @@ Hubshack is integrated ham radio rig control software. The browser is the host; 
 
 ## How to read this doc
 
-This file is an **index of decisions**, not a tutorial. Most rules are one line with a pointer to a canonical file — the *why* lives as a comment at that file, where it fires when you're about to violate it. Read sections 1–4 once for orientation, then skim section 5 as a checklist.
+This file is an **index of decisions**, not a tutorial. Most rules are one line with a pointer to a canonical file — the _why_ lives as a comment at that file, where it fires when you're about to violate it. Read sections 1–4 once for orientation, then skim section 5 as a checklist.
 
 1. **Domain Terminology** — disambiguates Panel/Pane/BenchPanel. Everything else assumes you know these words.
 2. **Current scaffolding state** — what's wired vs. mocked vs. not built.
 3. **Persistent Domains** — taxonomy of what's persisted and where.
 4. **Architecture overview** — one paragraph per layer + a canonical file pointer.
-5. **Rules** — flat list of decisions with pointers. Read the comment at the pointer for the *why*.
+5. **Rules** — flat list of decisions with pointers. Read the comment at the pointer for the _why_.
 6. **Adding things** — checklists for the recurring shapes of new work.
-7. **Deliberate Non-Goals** — what *not* to build.
+7. **Deliberate Non-Goals** — what _not_ to build.
 
 ## 1. Domain Terminology
 
 These names appear in the UI, in code, and in conversations with users. They are radio-native by design — use them consistently.
 
-| Term          | Meaning                                                                                                                                                                              |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Shack**     | The whole application. The operator's digital shack.                                                                                                                                 |
-| **Station**   | A physical/logical operating setup: location, rig(s), antennas. A user can have several.                                                                                             |
-| **Bench**     | A named arrangement of panels for a specific kind of operating — e.g. "FT8 bench", "contest bench", "nets bench". A tab within a Station.                                            |
-| **Panel**     | A kind of UI element a user can arrange on a bench: VFO, S-meter, log entry, rotator control, waterfall, etc. Code, not data — lives in `src/panels/` and is registered with `PanelRegistry` at startup.                                  |
-| **BenchPanel** | A persisted _placement_ of a Panel on a Bench. Carries the Bench id, the Panel registry id, and (eventually) per-placement config. The thing that goes in Dexie.                    |
-| **Device**    | A piece of physical gear connected to a Station: radio, amp, rotator, etc. Devices are owned by a Station; panels across many Benches subscribe to them.                             |
-| **Adapter**   | The piece of code that knows how to talk to a Device and exposes its capabilities on the bus. Panels and Devices are decoupled by Adapters — neither knows about the other directly. |
-| **View**      | A routable top-level screen in the app (Splash, Setup, Station). Lives in `src/views/`. Internal term, not user-facing.                                                              |
-| **Pane**      | A self-contained chunk of a View (header, sidebar, tab strip, etc.). Named to avoid collision with radio-domain "Panel."                                                             |
+| Term           | Meaning                                                                                                                                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Shack**      | The whole application. The operator's digital shack.                                                                                                                                                     |
+| **Station**    | A physical/logical operating setup: location, rig(s), antennas. A user can have several.                                                                                                                 |
+| **Bench**      | A named arrangement of panels for a specific kind of operating — e.g. "FT8 bench", "contest bench", "nets bench". A tab within a Station.                                                                |
+| **Panel**      | A kind of UI element a user can arrange on a bench: VFO, S-meter, log entry, rotator control, waterfall, etc. Code, not data — lives in `src/panels/` and is registered with `PanelRegistry` at startup. |
+| **BenchPanel** | A persisted _placement_ of a Panel on a Bench. Carries the Bench id, the Panel registry id, and (eventually) per-placement config. The thing that goes in Dexie.                                         |
+| **Device**     | A piece of physical gear connected to a Station: radio, amp, rotator, etc. Devices are owned by a Station; panels across many Benches subscribe to them.                                                 |
+| **Adapter**    | A single protocol command, not a whole radio. One Adapter per command per protocol (e.g. `CatFAAdapter` for VFO-A in CAT, `CiVVfoAAdapter` for VFO-A in CI-V). A radio's Device owns a *set* of Adapters covering its supported commands. Panels and Devices are decoupled by Adapters — neither knows about the other directly. |
+| **View**       | A routable top-level screen in the app (Splash, Setup, Station). Lives in `src/views/`. Internal term, not user-facing.                                                                                  |
+| **Pane**       | A self-contained chunk of a View (header, sidebar, tab strip, etc.). Named to avoid collision with radio-domain "Panel."                                                                                 |
 
 Hierarchy of persisted concepts: **Shack → Station → Bench → BenchPanel**, with Devices parallel to Bench under Station.
 
@@ -42,7 +42,8 @@ The architecture description below is the target. As of now:
 - **Code-not-data, fully wired:** `Panel` and `PanelRegistry` (loaded once from `App.svelte`). Three real Panels ship: `callsign`, `clock`, `on-air`. `LibraryPane` and `BenchPane` both read from the registry.
 - **Adding panels to a bench:** `+` button on each `LibraryPane` row. Disabled when no bench is active. Drag-and-drop is not wired; `svelte-dnd-action` is uninstalled.
 - **In-VM mocks (no domain entity yet):** `DevicesPane`.
-- **Not built:** Devices entity, pub/sub bus, per-`BenchPanel` config blob, panel deletion from a bench. Test suite is empty except for a placeholder.
+- **Transport (`src/transport/`):** Full stack drafted and conformed. `SerialLink` (wraps a granted `SerialPort`, pass-through `readable`/`writable`, cached DTR/RTS, fires `connected`/`disconnected`), `CatRouter` (semicolon framing via `pipeThrough`/`pipeTo` with `AbortController`), `Dispatcher` (single writer, serialized `send` queue, watches `writer.closed` for write-side death), `Signaler` (thin pass-through over serial signals), `SerialLinkManager` (owns all four, `start`/`stop` orchestration). Reconnect logic is not yet implemented; Manager listens for nothing beyond what its parts do.
+- **Not built:** Devices entity, Adapters, pub/sub bus, TransportManager reconnect/backoff, per-`BenchPanel` config blob, panel deletion from a bench. Test suite is empty except for a placeholder.
 
 ## 3. Persistent Domains
 
@@ -65,6 +66,7 @@ Most panels get their data from Devices via pub/sub, not from persisted state. *
 **Watch API (`src/domain/entity-observer.ts`).** Wraps Dexie's `liveQuery`. Subscriptions are deduplicated per `(subclass, key)`; new subscribers get the cached last value immediately; the underlying query tears down when the last subscriber unsubscribes. See the comments in `entity.ts` and `entity-observer.ts` for the partitioning trick and the `undefined`-sentinel invariant.
 
 **App-wide state.** Two patterns:
+
 - `AppRouter` (`src/app/app-router.svelte.ts`) — static singleton. No subscriptions to manage.
 - `AppState` (`src/app/app-state.svelte.ts`) — context-registered singleton. Owns `$effect`-driven subscriptions over the current user and station.
 
@@ -78,9 +80,35 @@ Most panels get their data from Devices via pub/sub, not from persisted state. *
 
 **Components (`src/components/`).** Generic, VM-unaware UI primitives. Each accepts a `class` prop applied to its root. Existing: `InlineEdit`, `SidePane`, `SidePaneHeader`, and icons in `src/components/icons/`. Display-only components never call `fetchViewModel`.
 
+**Transport (`src/transport/`).** The wire layer. The folder is the *layer*; the byte-stream interface inside is `Link`. Layered structure:
+
+```
+src/transport/
+  link.ts                     # Link interface + LinkError + LinkErrorReason
+  link-manager.ts             # LinkManager interface (start/stop) + LinkManagerError
+  router.ts                   # Router interface + RouterError + RouterConstructor
+  dispatcher.ts               # Dispatcher + DispatcherError
+  signaler.ts                 # Signaler (SerialLink-typed)
+  routers/                    # protocol Routers — work over any Link
+    cat-router.ts
+  serial/                     # serial-specific implementations
+    serial-link.ts            # SerialLink implements Link
+    serial-link-manager.ts    # SerialLinkManager implements LinkManager
+```
+
+- **Link** — the minimal contract Router and Dispatcher consume: an `EventTarget` with `readable: ReadableStream<Uint8Array>` and `writable: WritableStream<Uint8Array>`. Documented to dispatch `connected` / `disconnected`. `SerialLink implements Link` — wraps one `SerialPort`, pass-through stream getters, cached DTR/RTS, no input-signal API. Lifecycle guards check `port.readable`/`port.writable` directly; no internal "open" flag. Disconnect detection is via `port`'s `'disconnect'` event. Stream-level errors are Router/Dispatcher's to surface, not Link's.
+- **Router** — one per Link, one *class* per protocol. `interface Router extends EventTarget` with `start(): void` and `stop(): Promise<void>`. Emits `'frame'` (`CustomEvent<Uint8Array>`) per parsed frame and `'error'` (cause as `detail`) on pipe failure. Multiple Adapters subscribe to one Router and self-filter by leading bytes — fan-out is just `addEventListener`, no tee. `CatRouter` (semicolon framing) is the first implementation; uses `pipeThrough(SemicolonFramer).pipeTo(sink)` with `AbortController` for lifecycle.
+- **Dispatcher** — one per Link, single class for all protocols (bytes-in, bytes-out is universal). Extends `EventTarget`. Owns the only writer on `link.writable`. `send(frame)` serializes concurrent writes via an internal promise chain. Watches `writer.closed` so write-side stream death surfaces as `'error'` event even with no in-flight `send()`; guards against firing during normal `stop()`.
+- **Signaler** — one per `SerialLink`. Thin pass-through over `setRTS`/`setDTR`/`setSignals` plus cached `rts`/`dtr` getters. Serial-specific by nature; no PTT abstraction (Adapter picks which pin is PTT).
+- **LinkManager** — `interface LinkManager { start(): Promise<void>; stop(): Promise<void> }`. `SerialLinkManager implements LinkManager` and owns one `SerialLink` + one `Router` (instantiated from a `RouterConstructor` passed to the manager) + `Dispatcher` + `Signaler`. `start()` opens link → starts dispatcher → starts router; `stop()` reverses. Reconnect/backoff is not yet implemented.
+
+**Error model.** Each component owns its own error class colocated with the component: `LinkError`, `RouterError`, `DispatcherError`, `LinkManagerError`. Each carries a `reason` field (a small enum scoped to that error class — e.g. `RouterErrorReason.AlreadyStarted`). Foreign errors from WebSerial or the streams bubble untouched — we don't wrap them.
+
+Adapters sit one layer above. An Adapter implements a single protocol command (e.g. `CatFAAdapter` = VFO-A frequency in CAT). It subscribes to its Router's `'frame'` events, self-filters by the leading bytes it cares about, decodes the frame body, and emits protocol-neutral pub/sub events tagged with the owning Device's id. It writes by encoding a frame and calling `dispatcher.send(...)`. A radio's Device assembles the full set of Adapters covering its command surface; assembly strategy (hardcoded list vs. registry vs. capability-driven) is still being designed.
+
 ## 5. Rules
 
-Each rule is a one-liner. Where a *why* would help, the canonical file carries a comment — read it when you're about to touch that code.
+Each rule is a one-liner. Where a _why_ would help, the canonical file carries a comment — read it when you're about to touch that code.
 
 ### Domain
 
@@ -140,12 +168,17 @@ Each rule is a one-liner. Where a *why* would help, the canonical file carries a
 - **No backwards-compatibility shims** for code that hasn't shipped.
 - **No emojis** in code, commit messages, or generated text unless asked.
 - **Setters over `setX(value)` methods** when the operation is one assignment.
+- **One-line `if`s for short bodies.** `if (cond) statement` — no braces, no wrapping. Multi-line braced form only when the body is genuinely multi-statement or too long to read on one line. Applies especially to guard-clause throws at the top of methods.
+- **`type` aliases for data shapes; `interface` only when `implements`/extension is the point.** `Link`, `Router`, `LinkManager` are interfaces because concrete classes implement them.
+- **`null` is intentional, `undefined` is "JavaScript did that."** Never interchangeable; don't paper over with `??`.
 
 ### Path aliases
 
-Defined in `tsconfig.app.json` and `vite.config.ts` — keep in sync. Prefer aliased imports over relative paths across top-level directories.
+Defined in `tsconfig.app.json` and `vite.config.ts` — keep in sync.
 
-`@src`, `@app`, `@domain`, `@components`, `@views`, `@panels`, `@spec`.
+`@src`, `@app`, `@domain`, `@components`, `@views`, `@panels`, `@transport`, `@spec`.
+
+- **Never use `../` in import paths.** Within the same folder, `./sibling` is fine. The moment an import would traverse upward, switch to the alias (`@transport/link`, `@domain/entity`, etc.). Relative parent imports are fragile under refactors and obscure the layer the dependency lives in.
 
 ## 6. Adding things
 
@@ -183,6 +216,7 @@ src/
   components/  — generic UI primitives + icons
   views/       — routable screens, with per-view Panes and VMs
   panels/      — radio panels (user-arrangeable bench contents)
+  transport/   — wire layer: Link/LinkManager/Router/Dispatcher/Signaler interfaces and errors at top; routers/ holds protocol Routers; serial/ holds SerialLink + SerialLinkManager
 spec/          — vitest tests (placeholder only; conventions TBD)
 ```
 

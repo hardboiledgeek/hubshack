@@ -23,6 +23,7 @@ export default defineConfig({
       '@domain': path.resolve('./src/domain'),
       '@views': path.resolve('./src/views'),
       '@panels': path.resolve('./src/panels'),
+      '@transport': path.resolve('./src/transport'),
       '@spec': path.resolve('./spec')
     }
   }
